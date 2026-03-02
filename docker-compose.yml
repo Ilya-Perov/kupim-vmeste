@@ -1,7 +1,9 @@
+version: '3.8'
+
 services:
   db:
     image: postgres:15
-    container_name: postgres
+    container_name: pg
     restart: always
     environment:
       POSTGRES_USER: admin
@@ -13,9 +15,10 @@ services:
     networks:
       - app-network
 
+
   frontend:
     build:
-      context: ./frontend
+      context: ./frontend/
       dockerfile: dockerfile
     container_name: react-nginx
     ports:
