@@ -1,11 +1,10 @@
 server {
-    listen 80;
-    server_name localhost;
+    listen ${NGINX_PORT};
+    server_name ${SERVER_NAME};
     
-    root /usr/share/nginx/html;  # Match Dockerfile copy destination
+    root /usr/share/nginx/html;
     index index.html;
 
-    # Gzip compression (optional but recommended)
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
 
@@ -13,16 +12,13 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    # Cache static assets
     location /static/ {
         expires 1y;
         add_header Cache-Control "public, immutable";
     }
 
-    # Handle 404 errors
     error_page 404 /index.html;
     
-    # Deny access to hidden files
     location ~ /\. {
         deny all;
         access_log off;
