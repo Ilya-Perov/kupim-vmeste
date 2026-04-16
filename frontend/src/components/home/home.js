@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import Header from '../header/header';
 import Footer from '../footer/footer';
@@ -8,69 +8,24 @@ import './home.css';
 
 const Home = () => {
   const navigate = useNavigate();
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const products = [
-    {
-      id: 1,
-      name: 'Смартфон Xiaomi Redmi Note 12',
-      price: 24990,
-      oldPrice: 29990,
-      image: 'https://via.placeholder.com/300x200',
-      rating: 4,
-      inCart: false,
-      familyMembers: ['Анна', 'Миша']
-    },
-    {
-      id: 2,
-      name: 'Наушники Sony WH-1000XM4',
-      price: 27990,
-      oldPrice: null,
-      image: 'https://via.placeholder.com/300x200',
-      rating: 5,
-      inCart: true,
-      familyMembers: ['Анна']
-    },
-    {
-      id: 3,
-      name: 'Робот-пылесос Xiaomi Vacuum',
-      price: 18990,
-      oldPrice: 22990,
-      image: 'https://via.placeholder.com/300x200',
-      rating: 4,
-      inCart: false,
-      familyMembers: ['Алексей', 'Катя']
-    },
-    {
-      id: 4,
-      name: 'Планшет Samsung Tab S8',
-      price: 45990,
-      oldPrice: 49990,
-      image: 'https://via.placeholder.com/300x200',
-      rating: 5,
-      inCart: false,
-      familyMembers: []
-    },
-    {
-      id: 5,
-      name: 'Умная колонка Яндекс Станция',
-      price: 12990,
-      oldPrice: 14990,
-      image: 'https://via.placeholder.com/300x200',
-      rating: 4,
-      inCart: false,
-      familyMembers: ['Миша']
-    },
-    {
-      id: 6,
-      name: 'Фитнес-браслет Xiaomi Mi Band 8',
-      price: 3990,
-      oldPrice: 4990,
-      image: 'https://via.placeholder.com/300x200',
-      rating: 4,
-      inCart: false,
-      familyMembers: []
-    }
-  ];
+  // const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
+  // Загружаем продукты из БД
+  useEffect(() => {
+    fetch(`/api/products`)
+      .then(res => res.json())
+      .then(data => {
+        setProducts(data);
+        setLoading(false);
+      })
+      .catch(error => {
+        console.error('Error loading products:', error);
+        setLoading(false);
+      });
+  }, []);
 
   const categories = [
     { name: 'Электроника', icon: '📱', count: 45 },
@@ -81,22 +36,36 @@ const Home = () => {
     { name: 'Красота', icon: '💄', count: 16 }
   ];
 
-  const handleAddToCart = (productId) => {
-    console.log(`Товар ${productId} добавлен в корзину`);
-    // Здесь будет логика добавления в корзину
+  const handleAddToCart = async (productId) => {
+    // Для демо добавляем первому члену семьи (id=1)
+    try {
+      await fetch(`/api/cart/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: productId, member_id: 1 })
+      });
+      console.log(`Товар ${productId} добавлен в корзину`);
+      // Обновляем FamilyGroup через событие
+      window.dispatchEvent(new Event('cartUpdated'));
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+    }
   };
 
-  const handleAddToFamilyCart = (productId) => {
+  const handleAddToFamilyCart = async (productId) => {
+    await handleAddToCart(productId);
     console.log(`Товар ${productId} добавлен в семейную корзину`);
-    // Здесь будет логика добавления в семейную корзину
   };
+
+  if (loading) {
+    return <div className="loading">Загрузка товаров...</div>;
+  }
 
   return (
     <div className="home">
       <Header />
       
       <main className="main-content">
-        {/* Hero секция */}
         <section className="hero-section">
           <div className="hero-content">
             <h1>Семейный шопинг с выгодой</h1>
@@ -107,7 +76,6 @@ const Home = () => {
           </div>
         </section>
 
-        {/* Категории */}
         <section className="categories-section">
           <div className="section-header">
             <h2>Популярные категории</h2>
@@ -125,7 +93,6 @@ const Home = () => {
           </div>
         </section>
 
-        {/* Основной контент с товарами и виджетом семейной группы */}
         <div className="content-wrapper">
           <div className="products-section">
             <div className="section-header">
@@ -144,7 +111,12 @@ const Home = () => {
               {products.map(product => (
                 <ProductCard 
                   key={product.id} 
-                  product={product}
+                  product={{
+                    ...product,
+                    oldPrice: product.old_price,
+                    inCart: false,
+                    familyMembers: []
+                  }}
                   onAddToCart={handleAddToCart}
                   onAddToFamilyCart={handleAddToFamilyCart}
                 />
