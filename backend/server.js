@@ -46,20 +46,29 @@ app.use(cors({
 
 app.use(express.json());
 
-// Сессии с Redis Store
-app.use(session({
-  store: new RedisStore({ client: redisClient }),
-  secret: process.env.SESSION_SECRET || 'fallback-secret-change-in-production',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production', // true для HTTPS
-    httpOnly: true,
-    maxAge: 1000 * 60 * 60 * 24, // 24 часа
-    sameSite: 'lax'
-  },
-  name: 'sessionId'
-}));
+async function start() {
+  await redisClient.connect();
+
+  app.use(session({
+    store: new RedisStore({ client: redisClient }),
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: 86400000
+    }
+  }));
+
+  initDB().then(() => {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log('Backend started');
+    });
+  });
+}
+
+start();
 
 // PostgreSQL подключение (без изменений)
 const pool = new Pool({
