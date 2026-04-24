@@ -1,6 +1,6 @@
 services:
   backend:
-    image: ${DOCKER_USERNAME}/backend:latest
+    image: ${DOCKER_USERNAME}/backend:${IMAGE_TAG}
     restart: always
     environment:
       DB_HOST: db
@@ -10,11 +10,10 @@ services:
       POSTGRES_DB: family_shop
       REDIS_URL: redis://redis:6379
       SESSION_SECRET: supersecret
-      CORS_ORIGIN: http://localhost
       NODE_ENV: production
 
   frontend:
-    image: ${DOCKER_USERNAME}/frontend:latest
+    image: ${DOCKER_USERNAME}/frontend:${IMAGE_TAG}
     ports:
       - "80:80"
 
