@@ -11,6 +11,10 @@ services:
       REDIS_URL: redis://redis:6379
       SESSION_SECRET: supersecret
       NODE_ENV: production
+    deploy:
+      replicas: 3
+    depends_on:
+      - db
 
   frontend:
     image: ${DOCKER_USERNAME}/frontend:${IMAGE_TAG}
