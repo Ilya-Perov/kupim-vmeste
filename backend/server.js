@@ -14,7 +14,36 @@ const PORT = process.env.PORT || 5000;
 const instanceId = `${os.hostname()}-${process.pid}`;
 let requestCount = 0;
 
-/* ================= MIDDLEWARE ================= */
+/* ================= REDIS ================= */
+
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://redis:6379'
+});
+
+redisClient.on('error', (err) => {
+  console.error('Redis error:', err);
+});
+
+/* ================= POSTGRES ================= */
+
+const pool = new Pool({
+  host: process.env.DB_HOST || 'db',
+  port: process.env.DB_PORT || 5432,
+  user: process.env.POSTGRES_USER || 'postgres',
+  password: process.env.POSTGRES_PASSWORD || 'postgres',
+  database: process.env.POSTGRES_DB || 'family_shop',
+});
+
+/* ================= GLOBAL MIDDLEWARE ================= */
+
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+app.use(express.json());
 
 app.use((req, res, next) => {
   requestCount++;
@@ -27,40 +56,13 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
-}));
-
-app.use(express.json());
-
-/* ================= REDIS ================= */
-
-const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://redis:6379'
-});
-
-redisClient.on('connect', () => console.log('Redis connected'));
-redisClient.on('error', (err) => console.error('Redis error:', err));
-
-/* ================= POSTGRES ================= */
-
-const pool = new Pool({
-  host: process.env.DB_HOST || 'db',
-  port: process.env.DB_PORT || 5432,
-  user: process.env.POSTGRES_USER || 'postgres',
-  password: process.env.POSTGRES_PASSWORD || 'postgres',
-  database: process.env.POSTGRES_DB || 'family_shop',
-});
-
 /* ================= DB INIT ================= */
 
 async function initDB() {
   const client = await pool.connect();
 
   try {
+    // PRODUCTS
     await client.query(`
       CREATE TABLE IF NOT EXISTS products (
         id SERIAL PRIMARY KEY,
@@ -73,6 +75,7 @@ async function initDB() {
       )
     `);
 
+    // FAMILY MEMBERS
     await client.query(`
       CREATE TABLE IF NOT EXISTS family_members (
         id SERIAL PRIMARY KEY,
@@ -82,6 +85,7 @@ async function initDB() {
       )
     `);
 
+    // CART
     await client.query(`
       CREATE TABLE IF NOT EXISTS cart_items (
         id SERIAL PRIMARY KEY,
@@ -92,6 +96,7 @@ async function initDB() {
       )
     `);
 
+    // STATE
     await client.query(`
       CREATE TABLE IF NOT EXISTS app_state (
         key VARCHAR(100) PRIMARY KEY,
@@ -100,6 +105,7 @@ async function initDB() {
       )
     `);
 
+    // USERS
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -110,28 +116,43 @@ async function initDB() {
       )
     `);
 
-    // seed products
-    const productsCount = await client.query('SELECT COUNT(*) FROM products');
-    if (parseInt(productsCount.rows[0].count) === 0) {
+    /* ================= SEED FAMILY MEMBERS FIRST ================= */
+
+    const membersCount = await client.query('SELECT COUNT(*) FROM family_members');
+
+    if (parseInt(membersCount.rows[0].count) === 0) {
       await client.query(`
-        INSERT INTO products (name, price, old_price, image, rating) VALUES
-        ('Смартфон Xiaomi Redmi Note 12', 24990, 29990, 'https://via.placeholder.com/300x200', 4),
-        ('Наушники Sony WH-1000XM4', 27990, NULL, 'https://via.placeholder.com/300x200', 5),
-        ('Робот-пылесос Xiaomi Vacuum', 18990, 22990, 'https://via.placeholder.com/300x200', 4)
+        INSERT INTO family_members (name, avatar, items_count) VALUES
+        ('Анна', '👩', 2),
+        ('Алексей', '👨', 1),
+        ('Миша', '👦', 3),
+        ('Катя', '👧', 0)
       `);
     }
 
-    // seed users
+    /* ================= GET REAL IDs ================= */
+
+    const members = await client.query(`
+      SELECT id, name FROM family_members ORDER BY id
+    `);
+
+    const annaId = members.rows.find(m => m.name === 'Анна')?.id;
+    const alexeyId = members.rows.find(m => m.name === 'Алексей')?.id;
+
+    /* ================= SEED USERS SAFELY ================= */
+
     const usersCount = await client.query('SELECT COUNT(*) FROM users');
-    if (parseInt(usersCount.rows[0].count) === 0) {
+
+    if (parseInt(usersCount.rows[0].count) === 0 && annaId && alexeyId) {
       await client.query(`
         INSERT INTO users (username, password_hash, family_member_id) VALUES
-        ('anna', 'test123', 1),
-        ('alexey', 'test123', 2)
-      `);
+        ('anna', 'test123', $1),
+        ('alexey', 'test123', $2)
+      `, [annaId, alexeyId]);
     }
 
     console.log('Database initialized');
+
   } catch (err) {
     console.error('DB init error:', err);
   } finally {
@@ -139,123 +160,127 @@ async function initDB() {
   }
 }
 
-/* ================= SESSION ================= */
+/* ================= SESSION SETUP (AFTER REDIS CONNECT) ================= */
 
-async function start() {
+async function setupSession() {
   await redisClient.connect();
+  console.log('Redis connected');
 
   app.use(session({
     store: new RedisStore({ client: redisClient }),
-    secret: process.env.SESSION_SECRET || 'secret',
+    secret: process.env.SESSION_SECRET || 'dev-secret',
     resave: false,
     saveUninitialized: false,
+    name: 'sessionId',
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
-      maxAge: 86400000
+      secure: false,
+      maxAge: 1000 * 60 * 60 * 24
     }
   }));
+}
 
-  await initDB();
+/* ================= AUTH ================= */
 
-  /* ================= ROUTES ================= */
+app.post('/api/login', async (req, res) => {
+  const { username, password } = req.body;
 
-  app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
-
-    try {
-      const result = await pool.query(
-        'SELECT * FROM users WHERE username = $1 AND password_hash = $2',
-        [username, password]
-      );
-
-      if (!result.rows.length) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-
-      const user = result.rows[0];
-
-      req.session.userId = user.id;
-      req.session.username = user.username;
-      req.session.familyMemberId = user.family_member_id;
-
-      res.json({
-        success: true,
-        user: { id: user.id, username: user.username },
-        hostname: os.hostname()
-      });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.get('/api/me', async (req, res) => {
-    if (!req.session.userId) {
-      return res.status(401).json({ authenticated: false });
-    }
-
+  try {
     const result = await pool.query(
-      'SELECT id, username, family_member_id FROM users WHERE id = $1',
-      [req.session.userId]
+      'SELECT * FROM users WHERE username = $1 AND password_hash = $2',
+      [username, password]
     );
 
+    if (!result.rows.length) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const user = result.rows[0];
+
+    req.session.userId = user.id;
+    req.session.username = user.username;
+    req.session.familyMemberId = user.family_member_id;
+
     res.json({
-      authenticated: true,
-      user: result.rows[0],
+      success: true,
+      user: { id: user.id, username: user.username },
       hostname: os.hostname()
     });
-  });
 
-  app.post('/api/logout', (req, res) => {
-    req.session.destroy(() => {
-      res.json({ success: true });
-    });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-  app.get('/api/health', (req, res) => {
-    res.json({
-      status: 'ok',
-      instance: instanceId,
-      hostname: os.hostname(),
-      pid: process.pid,
-      uptime: process.uptime(),
-      requestCount,
-      timestamp: new Date().toISOString()
-    });
-  });
+app.get('/api/me', (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ authenticated: false });
+  }
 
-  app.get('/api/products', async (req, res) => {
+  res.json({
+    authenticated: true,
+    user: {
+      id: req.session.userId,
+      username: req.session.username,
+      family_member_id: req.session.familyMemberId
+    },
+    hostname: os.hostname()
+  });
+});
+
+app.post('/api/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.json({ success: true });
+  });
+});
+
+/* ================= OTHER API ================= */
+
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    instance: instanceId,
+    hostname: os.hostname(),
+    uptime: process.uptime(),
+    requests: requestCount
+  });
+});
+
+app.get('/api/products', async (req, res) => {
+  try {
     const result = await pool.query('SELECT * FROM products ORDER BY id');
     res.json(result.rows);
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-  app.get('/api/family-members', async (req, res) => {
+app.get('/api/family-members', async (req, res) => {
+  try {
     const result = await pool.query('SELECT * FROM family_members ORDER BY id');
     res.json(result.rows);
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-  app.post('/api/cart/add', async (req, res) => {
-    const { product_id, member_id } = req.body;
+/* ================= BOOT ================= */
 
-    await pool.query(
-      'INSERT INTO cart_items (product_id, member_id) VALUES ($1, $2)',
-      [product_id, member_id]
-    );
+async function start() {
+  try {
+    await setupSession();
+    await initDB();
 
-    res.json({ success: true, servedBy: os.hostname() });
-  });
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`🖥 Host: ${os.hostname()}`);
+    });
 
-  app.get('/api/cart/total', async (req, res) => {
-    const result = await pool.query('SELECT COUNT(*) FROM cart_items');
-    res.json({ total: parseInt(result.rows[0].count) });
-  });
-
-  /* ================= START SERVER ================= */
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Backend running on port ${PORT}`);
-    console.log(`🖥 Host: ${os.hostname()}`);
-  });
+  } catch (err) {
+    console.error('Startup error:', err);
+    process.exit(1);
+  }
 }
 
 start();
