@@ -10,6 +10,22 @@ const os = require('os');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const instanceId = `${os.hostname()}-${process.pid}`;
+
+let requestCount = 0;
+
+// лог каждого запроса
+app.use((req, res, next) => {
+  requestCount++;
+
+  console.log(`[${instanceId}] ${req.method} ${req.url}`);
+
+  res.setHeader('X-Instance-Id', instanceId);
+  res.setHeader('X-Request-Count', requestCount);
+
+  next();
+});
+
 // Redis клиент для сессий
 const redisClient = createClient({
   url: process.env.REDIS_URL || 'redis://redis:6379'
@@ -221,10 +237,14 @@ app.post('/api/logout', (req, res) => {
 // ========== СУЩЕСТВУЮЩИЕ API (с добавлением hostname для демонстрации) ==========
 
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
+    instance: instanceId,
     hostname: os.hostname(),
-    sessionId: req.session.id?.substring(0, 8) || 'no-session',
+    pid: process.pid,
+    uptime: process.uptime(),
+    requestCount,
+    memoryUsage: process.memoryUsage(),
     timestamp: new Date().toISOString()
   });
 });
