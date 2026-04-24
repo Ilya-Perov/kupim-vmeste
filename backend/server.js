@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 5000;
 const instanceId = `${os.hostname()}-${process.pid}`;
 let requestCount = 0;
 
-/* ================= MIDDLEWARE ================= */
+/* ================= CORE MIDDLEWARE ================= */
 
 app.use(cors({
   origin: true,
@@ -33,16 +33,6 @@ app.use((req, res, next) => {
   next();
 });
 
-/* ================= REDIS ================= */
-
-const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://redis:6379'
-});
-
-redisClient.on('error', (err) => {
-  console.error('Redis error:', err);
-});
-
 /* ================= POSTGRES ================= */
 
 const pool = new Pool({
@@ -53,28 +43,7 @@ const pool = new Pool({
   database: process.env.POSTGRES_DB || 'family_shop',
 });
 
-/* ================= SESSION (ВАЖНО!) ================= */
-
-async function setupSession() {
-  await redisClient.connect();
-  console.log('Redis connected');
-
-  app.use(session({
-    store: new RedisStore({ client: redisClient }),
-    secret: process.env.SESSION_SECRET || 'dev-secret',
-    resave: false,
-    saveUninitialized: false,
-    name: 'sessionId',
-    cookie: {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: false,
-      maxAge: 1000 * 60 * 60 * 24
-    }
-  }));
-}
-
-/* ================= INIT DB ================= */
+/* ================= DB INIT ================= */
 
 async function initDB() {
   const client = await pool.connect();
@@ -174,102 +143,126 @@ async function initDB() {
   }
 }
 
-/* ================= AUTH ================= */
+/* ================= REDIS + SESSION ================= */
 
-app.post('/api/login', async (req, res) => {
-  const { username, password } = req.body;
-
-  try {
-    const result = await pool.query(
-      'SELECT * FROM users WHERE username = $1 AND password_hash = $2',
-      [username, password]
-    );
-
-    if (!result.rows.length) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    const user = result.rows[0];
-
-    req.session.userId = user.id;
-    req.session.username = user.username;
-    req.session.familyMemberId = user.family_member_id;
-
-    res.json({
-      success: true,
-      user: {
-        id: user.id,
-        username: user.username
-      },
-      hostname: os.hostname()
-    });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://redis:6379'
 });
 
-app.get('/api/me', (req, res) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ authenticated: false });
-  }
-
-  res.json({
-    authenticated: true,
-    user: {
-      id: req.session.userId,
-      username: req.session.username,
-      family_member_id: req.session.familyMemberId
-    }
-  });
-});
-
-app.post('/api/logout', (req, res) => {
-  req.session.destroy(() => {
-    res.json({ success: true });
-  });
-});
-
-/* ================= API ================= */
-
-app.get('/api/products', async (req, res) => {
-  const result = await pool.query('SELECT * FROM products ORDER BY id');
-  res.json(result.rows);
-});
-
-app.get('/api/family-members', async (req, res) => {
-  const result = await pool.query('SELECT * FROM family_members ORDER BY id');
-  res.json(result.rows);
-});
-
-app.post('/api/cart/add', async (req, res) => {
-  const { product_id, member_id } = req.body;
-
-  await pool.query(
-    'INSERT INTO cart_items (product_id, member_id) VALUES ($1, $2)',
-    [product_id, member_id]
-  );
-
-  await pool.query(
-    'UPDATE family_members SET items_count = items_count + 1 WHERE id = $1',
-    [member_id]
-  );
-
-  res.json({ success: true });
-});
-
-app.get('/api/cart/total', async (req, res) => {
-  const result = await pool.query('SELECT COUNT(*) as total FROM cart_items');
-  res.json({ total: parseInt(result.rows[0].total) });
-});
-
-/* ================= START ================= */
+/* ================= START APP ================= */
 
 async function start() {
   try {
-    await setupSession();
+    /* 1. Redis FIRST */
+    await redisClient.connect();
+    console.log('Redis connected');
+
+    /* 2. SESSION SECOND */
+    app.use(session({
+      store: new RedisStore({ client: redisClient }),
+      secret: process.env.SESSION_SECRET || 'dev-secret',
+      resave: false,
+      saveUninitialized: false,
+      name: 'sessionId',
+      cookie: {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: false,
+        maxAge: 1000 * 60 * 60 * 24
+      }
+    }));
+
+    /* 3. AUTH ROUTES */
+    app.post('/api/login', async (req, res) => {
+      const { username, password } = req.body;
+
+      try {
+        const result = await pool.query(
+          'SELECT * FROM users WHERE username = $1 AND password_hash = $2',
+          [username, password]
+        );
+
+        if (!result.rows.length) {
+          return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        const user = result.rows[0];
+
+        req.session.userId = user.id;
+        req.session.username = user.username;
+        req.session.familyMemberId = user.family_member_id;
+
+        res.json({
+          success: true,
+          user: {
+            id: user.id,
+            username: user.username
+          }
+        });
+
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.get('/api/me', (req, res) => {
+      if (!req.session.userId) {
+        return res.status(401).json({ authenticated: false });
+      }
+
+      res.json({
+        authenticated: true,
+        user: {
+          id: req.session.userId,
+          username: req.session.username,
+          family_member_id: req.session.familyMemberId
+        }
+      });
+    });
+
+    app.post('/api/logout', (req, res) => {
+      req.session.destroy(() => {
+        res.json({ success: true });
+      });
+    });
+
+    /* 4. OTHER API */
+
+    app.get('/api/products', async (req, res) => {
+      const result = await pool.query('SELECT * FROM products ORDER BY id');
+      res.json(result.rows);
+    });
+
+    app.get('/api/family-members', async (req, res) => {
+      const result = await pool.query('SELECT * FROM family_members ORDER BY id');
+      res.json(result.rows);
+    });
+
+    app.post('/api/cart/add', async (req, res) => {
+      const { product_id, member_id } = req.body;
+
+      await pool.query(
+        'INSERT INTO cart_items (product_id, member_id) VALUES ($1, $2)',
+        [product_id, member_id]
+      );
+
+      await pool.query(
+        'UPDATE family_members SET items_count = items_count + 1 WHERE id = $1',
+        [member_id]
+      );
+
+      res.json({ success: true });
+    });
+
+    app.get('/api/cart/total', async (req, res) => {
+      const result = await pool.query('SELECT COUNT(*) as total FROM cart_items');
+      res.json({ total: parseInt(result.rows[0].total) });
+    });
+
+    /* 5. INIT DB */
     await initDB();
 
+    /* 6. START SERVER */
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Backend running on port ${PORT}`);
       console.log(`Instance: ${instanceId}`);
