@@ -1,60 +1,30 @@
-version: '3.8'
-
 services:
   backend:
-    image: ${BACKEND_IMAGE}
+    image: ${DOCKER_USERNAME}/backend:${IMAGE_TAG}
     restart: always
     environment:
       DB_HOST: db
       DB_PORT: 5432
-
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: family_shop
       REDIS_URL: redis://redis:6379
-      SESSION_SECRET: ${SESSION_SECRET}
-
-      CORS_ORIGIN: ${CORS_ORIGIN}
-      NODE_ENV: ${NODE_ENV}
-
-      IMAGE_TAG: ${IMAGE_TAG}
-
-    depends_on:
-      - db
-      - redis
-    networks:
-      - app-network
+      SESSION_SECRET: supersecret
+      CORS_ORIGIN: http://localhost
+      NODE_ENV: production
 
   frontend:
-    image: ${FRONTEND_IMAGE}
+    image: ${DOCKER_USERNAME}/frontend:${IMAGE_TAG}
     ports:
       - "80:80"
-    depends_on:
-      - backend
-    networks:
-      - app-network
 
   db:
     image: postgres:15
     restart: always
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - app-network
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: family_shop
 
   redis:
     image: redis:7-alpine
-    restart: always
-    networks:
-      - app-network
-
-volumes:
-  postgres_data:
-
-networks:
-  app-network:
