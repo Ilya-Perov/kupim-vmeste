@@ -14,18 +14,39 @@ const Home = () => {
   // const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
   // Загружаем продукты из БД
-  useEffect(() => {
-    fetch(`/api/products`)
-      .then(res => res.json())
-      .then(data => {
+// Загружаем продукты из БД
+useEffect(() => {
+  const loadProducts = async () => {
+    try {
+      const res = await fetch('/api/products');
+
+      if (!res.ok) {
+        throw new Error(`HTTP error: ${res.status}`);
+      }
+
+      const data = await res.json();
+      console.log('API response:', data);
+
+      // ✅ нормализация ответа
+      if (Array.isArray(data)) {
         setProducts(data);
-        setLoading(false);
-      })
-      .catch(error => {
-        console.error('Error loading products:', error);
-        setLoading(false);
-      });
-  }, []);
+      } else if (Array.isArray(data.data)) {
+        setProducts(data.data);
+      } else {
+        console.error('Unexpected data format:', data);
+        setProducts([]);
+      }
+
+    } catch (error) {
+      console.error('Error loading products:', error);
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  loadProducts();
+}, []);
 
   const categories = [
     { name: 'Электроника', icon: '📱', count: 45 },

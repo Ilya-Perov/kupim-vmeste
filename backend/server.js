@@ -2,41 +2,50 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
+const session = require('express-session');
+const RedisStore = require('connect-redis').default;
+const { createClient } = require('redis');
 const os = require('os');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Настройка CORS - ПОЛНАЯ
-app.use(cors({
-  origin: '*', // Разрешаем все источники
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  credentials: true,
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-}));
+// Redis клиент для сессий
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://redis:6379'
+});
 
-// Обрабатываем preflight OPTIONS запросы
-app.options('*', cors());
+redisClient.connect().catch(console.error);
+
+redisClient.on('connect', () => console.log('Redis client connected'));
+redisClient.on('error', (err) => console.error('Redis error:', err));
+
+// Настройка CORS для работы с credentials
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+}));
 
 app.use(express.json());
 
-// Добавляем middleware для логирования и CORS заголовков
-app.use((req, res, next) => {
-  // Устанавливаем CORS заголовки для каждого ответа
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  // Логируем запросы
-  console.log(`[${os.hostname()}] ${req.method} ${req.path}`, req.body);
-  
-  next();
-});
+// Сессии с Redis Store
+app.use(session({
+  store: new RedisStore({ client: redisClient }),
+  secret: process.env.SESSION_SECRET || 'fallback-secret-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // true для HTTPS
+    httpOnly: true,
+    maxAge: 1000 * 60 * 60 * 24, // 24 часа
+    sameSite: 'lax'
+  },
+  name: 'sessionId'
+}));
 
-// PostgreSQL подключение
+// PostgreSQL подключение (без изменений)
 const pool = new Pool({
   host: process.env.DB_HOST || 'db',
   port: process.env.DB_PORT || 5432,
@@ -45,7 +54,7 @@ const pool = new Pool({
   database: process.env.POSTGRES_DB || 'family_shop',
 });
 
-// Инициализация таблиц
+// Инициализация БД (ваш существующий код)
 async function initDB() {
   const client = await pool.connect();
   try {
@@ -88,6 +97,17 @@ async function initDB() {
       )
     `);
 
+    // Добавляем таблицу пользователей для аутентификации
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(100) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        family_member_id INTEGER REFERENCES family_members(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     const productsCount = await client.query('SELECT COUNT(*) FROM products');
     if (parseInt(productsCount.rows[0].count) === 0) {
       await client.query(`
@@ -112,6 +132,16 @@ async function initDB() {
       `);
     }
 
+    // Создаем тестового пользователя (пароль: test123)
+    const usersCount = await client.query('SELECT COUNT(*) FROM users');
+    if (parseInt(usersCount.rows[0].count) === 0) {
+      await client.query(`
+        INSERT INTO users (username, password_hash, family_member_id) VALUES
+        ('anna', 'test123', 1),
+        ('alexey', 'test123', 2)
+      `);
+    }
+
     console.log('Database initialized with test data');
   } catch (error) {
     console.error('Database init error:', error);
@@ -120,11 +150,81 @@ async function initDB() {
   }
 }
 
-// API endpoints
+// ========== НОВЫЕ API для аутентификации ==========
+
+// Логин
+app.post('/api/login', async (req, res) => {
+  const { username, password } = req.body;
+  
+  try {
+    const result = await pool.query(
+      'SELECT * FROM users WHERE username = $1 AND password_hash = $2',
+      [username, password]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    const user = result.rows[0];
+    req.session.userId = user.id;
+    req.session.username = user.username;
+    req.session.familyMemberId = user.family_member_id;
+    
+    res.json({ 
+      success: true, 
+      user: { id: user.id, username: user.username },
+      hostname: os.hostname()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Проверка сессии (кто я?)
+app.get('/api/me', async (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ authenticated: false });
+  }
+  
+  try {
+    const result = await pool.query(
+      'SELECT id, username, family_member_id FROM users WHERE id = $1',
+      [req.session.userId]
+    );
+    
+    if (result.rows.length === 0) {
+      req.session.destroy();
+      return res.status(401).json({ authenticated: false });
+    }
+    
+    res.json({ 
+      authenticated: true, 
+      user: result.rows[0],
+      hostname: os.hostname()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Logout
+app.post('/api/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ error: 'Logout failed' });
+    }
+    res.json({ success: true });
+  });
+});
+
+// ========== СУЩЕСТВУЮЩИЕ API (с добавлением hostname для демонстрации) ==========
+
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     hostname: os.hostname(),
+    sessionId: req.session.id?.substring(0, 8) || 'no-session',
     timestamp: new Date().toISOString()
   });
 });
@@ -132,7 +232,7 @@ app.get('/api/health', (req, res) => {
 app.get('/api/products', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM products ORDER BY id');
-    res.json(result.rows);
+    res.json(result.rows);  // ← ПРЯМО МАССИВ
   } catch (error) {
     console.error('Error fetching products:', error);
     res.status(500).json({ error: error.message });
@@ -150,44 +250,36 @@ app.get('/api/family-members', async (req, res) => {
 });
 
 app.post('/api/cart/add', async (req, res) => {
-  console.log('POST /api/cart/add - Request body:', req.body);
-  
   const { product_id, member_id } = req.body;
   
   if (!product_id || !member_id) {
-    return res.status(400).json({ 
-      error: 'Missing required fields: product_id and member_id' 
-    });
+    return res.status(400).json({ error: 'Missing required fields' });
   }
   
   try {
-    // Проверяем, существует ли уже такой товар в корзине у участника
     const existing = await pool.query(
       'SELECT * FROM cart_items WHERE product_id = $1 AND member_id = $2',
       [product_id, member_id]
     );
     
     if (existing.rows.length > 0) {
-      // Обновляем количество
       await pool.query(
         'UPDATE cart_items SET quantity = quantity + 1 WHERE product_id = $1 AND member_id = $2',
         [product_id, member_id]
       );
     } else {
-      // Добавляем новый товар
       await pool.query(
         'INSERT INTO cart_items (product_id, member_id) VALUES ($1, $2)',
         [product_id, member_id]
       );
     }
     
-    // Обновляем счётчик товаров у участника
     await pool.query(
       'UPDATE family_members SET items_count = items_count + 1 WHERE id = $1',
       [member_id]
     );
     
-    res.json({ success: true, message: 'Product added to cart' });
+    res.json({ success: true, servedBy: os.hostname() });
   } catch (error) {
     console.error('Error adding to cart:', error);
     res.status(500).json({ error: error.message });
@@ -239,6 +331,6 @@ app.get('/api/state/:key', async (req, res) => {
 initDB().then(() => {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Backend running on port ${PORT}`);
-    console.log(`CORS enabled for all origins`);
+    console.log(`Hostname: ${os.hostname()}`);
   });
 });
