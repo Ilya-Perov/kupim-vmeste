@@ -1,16 +1,60 @@
-import './App.css';
-import Home from './components/home/home';
-import Account from './components/account/account';
-import { BrowserRouter as Router, Route, Routes } from 'react-router';
+import "./App.css";
+
+import Home from "./components/home/home";
+import Account from "./components/account/account";
+import GroupPage from "./components/groupPage/groupPage";
+import LoginPage from "./components/loginPage/loginPage";
+import Header from "./components/header/header";
+
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+
+import { AuthProvider } from "./context/authContext";
+import { CartProvider } from "./context/cartContext";
+import ProtectedRoute from "./components/protectedRoute";
+import PublicRoute from "./components/publicRoute";
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path='/' element={<Home/>}/>
-        <Route path='account' element={<Account/>}/>
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <CartProvider>
+        <Router>
+          <Header />
+
+          <Routes>
+            {/* 🌍 PUBLIC */}
+            <Route path="/" element={<Home />} />
+
+            <Route
+              path="/login"
+              element={
+                <PublicRoute>
+                  <LoginPage />
+                </PublicRoute>
+              }
+            />
+
+            {/* 🔐 PROTECTED */}
+            <Route
+              path="/account"
+              element={
+                <ProtectedRoute>
+                  <Account />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/groups"
+              element={
+                <ProtectedRoute>
+                  <GroupPage />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </Router>
+      </CartProvider>
+    </AuthProvider>
   );
 }
 

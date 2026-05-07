@@ -1,40 +1,49 @@
-import React from 'react';
-import './header.css';
+import React from "react";
+import "./header.css";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/authContext";
 
 const Header = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
+
   return (
     <header className="header">
       <div className="header-container">
         <div className="logo">
-          <h1>FamilyShop</h1>
+          <Link to="/">
+            <h1>FamilyShop</h1>
+          </Link>
         </div>
-        
+
         <nav className="nav-menu">
           <ul>
-            <li><a href="/">Главная</a></li>
-            <li><a href="/catalog">Каталог</a></li>
-            <li><a href="/deals">Скидки</a></li>
-            <li><a href="/about">О нас</a></li>
+            <li>
+              <Link to="/">Главная</Link>
+            </li>
+            <li>
+              <Link to="/account">Аккаунт</Link>
+            </li>
+            <li>
+              <Link to="/groups">Группы</Link>
+            </li>
           </ul>
         </nav>
 
-        <div className="header-actions">
-          <div className="family-group">
-            <span className="family-icon">👨‍👩‍👧‍👦</span>
-            <span className="family-name">Семья Ивановых</span>
-          </div>
-          
-          <div className="cart-preview">
-            <span className="cart-icon">🛒</span>
-            <span className="cart-count">3</span>
-          </div>
-          
-          <div className="user-menu">
-            <button className="user-btn">
-              <span className="user-icon">👤</span>
-              <span>Анна</span>
-            </button>
-          </div>
+        <div className="user-box">
+          {user && (
+            <>
+              <span className="username">👤 {user.username}</span>
+              <button className="logout-btn" onClick={handleLogout}>
+                Выйти
+              </button>
+            </>
+          )}
         </div>
       </div>
     </header>

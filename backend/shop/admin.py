@@ -3,4 +3,4 @@ from .models import Product
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'price', 'rating')
+    list_display = ('id', 'name', 'price', 'created_at')

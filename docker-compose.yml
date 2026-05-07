@@ -1,11 +1,11 @@
 services:
   backend:
-    build: 
+    build:
       context: ./backend
       dockerfile: dockerfile
     restart: always
     volumes:
-      - ./backend:/app  # Монтируем код бэкенда
+      - ./backend:/app
     environment:
       DB_HOST: db
       DB_PORT: 5432
@@ -21,27 +21,35 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: dockerfile.dev # Указываем на наш новый файл
+      dockerfile: dockerfile.dev
+    restart: always
     volumes:
-      - ./frontend:/app          # Пробрасываем код (Hot Reload)
-      - /app/node_modules        # Не трогаем модули внутри контейнера
-    ports:
-      - "3000:3000"              # Заходим в браузере на http://localhost:3000
+      - ./frontend:/app
+      - /app/node_modules
     environment:
-      - CHOKIDAR_USEPOLLING=true # Чтобы Windows подхватывала изменения файлов
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
 
   db:
     image: postgres:15
     restart: always
-    volumes:
-      - postgres_data:/var/lib/postgresql/data # Данные БД не пропадут при перезагрузке
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: family_shop
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
 
   redis:
     image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
 
 volumes:
-  postgres_data: # Объявляем том для базы данных
+  postgres_data:

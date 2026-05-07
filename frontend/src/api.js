@@ -1,73 +1,132 @@
-// Используем полный путь к бэкенду, чтобы избежать проблем с портами
-const API_URL = 'http://localhost:5000/api';
+const API_URL = "http://localhost:5000/api";
+
+const getToken = () => localStorage.getItem("access");
+
+const logout = () => {
+  localStorage.clear();
+  window.dispatchEvent(new Event("unauthorized"));
+};
+
+const request = async (url, options = {}) => {
+  const token = getToken();
+
+  const res = await fetch(`${API_URL}/${url}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
+  });
+
+  let data = null;
+
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+
+  if (res.status === 401) {
+    logout();
+    return;
+  }
+
+  if (!res.ok) {
+    throw new Error(data?.detail || "API Error");
+  }
+
+  return data;
+};
 
 export const api = {
-    // Вход и получение токенов
-    login: async (username, password) => {
-        const response = await fetch(`${API_URL}/auth/token/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            // Django SimpleJWT ожидает именно эти поля
-            body: JSON.stringify({ username, password }), 
-        });
+  // =====================
+  // AUTH
+  // =====================
+  login: async (username, password) => {
+    const res = await fetch(`${API_URL}/auth/token/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            // Выводим в консоль, чтобы видеть причину (неверный пароль или юзер)
-            console.error('Ошибка входа:', errorData);
-            throw new Error(errorData.detail || 'Ошибка авторизации');
-        }
+    const data = await res.json();
 
-        const data = await response.json();
-        // Сохраняем токены
-        localStorage.setItem('access', data.access);
-        localStorage.setItem('refresh', data.refresh);
-        localStorage.setItem('username', username); // Полезно сохранить имя для UI
-        
-        return data;
-    },
+    if (!res.ok) throw new Error(data.detail || "Login error");
 
-    // Запрос с авторизацией
-    get: async (endpoint) => {
-        const token = localStorage.getItem('access');
-        const response = await fetch(`${API_URL}/${endpoint}`, {
-            method: 'GET',
-            headers: {
-                'Authorization': token ? `Bearer ${token}` : '',
-                'Content-Type': 'application/json',
-            },
-        });
+    localStorage.setItem("access", data.access);
+    localStorage.setItem("refresh", data.refresh);
 
-        if (response.status === 401) {
-            localStorage.clear();
-            window.location.href = '/account'; // Редирект если токен протух
-            return null;
-        }
+    return data;
+  },
 
-        if (!response.ok) throw new Error('Ошибка при получении данных');
-        return response.json();
-    },
+  logout,
 
-    // Действие (принять/отклонить приглашение, создать группу и т.д.)
-    post: async (endpoint, body = {}) => {
-        const token = localStorage.getItem('access');
-        const response = await fetch(`${API_URL}/${endpoint}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': token ? `Bearer ${token}` : '',
-            },
-            body: JSON.stringify(body),
-        });
+  getMe: () => request("users/me/"),
 
-        if (response.status === 401) {
-            localStorage.clear();
-            window.location.href = '/account';
-            return null;
-        }
+  // =====================
+  // PRODUCTS
+  // =====================
+  getProducts: () => request("products/"),
 
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.detail || 'Ошибка при отправке данных');
-        return data;
-    }
+  // =====================
+  // CART
+  // =====================
+  getCart: () => request("cart/my_cart/"),
+
+  addToCart: (product_id) =>
+    request("cart/add/", {
+      method: "POST",
+      body: JSON.stringify({ product_id }),
+    }),
+
+  removeFromCart: (product_id) =>
+    request("cart/remove/", {
+      method: "POST",
+      body: JSON.stringify({ product_id }),
+    }),
+
+  // =====================
+  // GROUPS
+  // =====================
+  getMyGroups: () => request("my-groups/"),
+
+  createGroup: (name) =>
+    request("my-groups/", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+
+  getGroupMembers: (groupId) => request(`my-groups/${groupId}/members/`),
+
+  // =====================
+  // INVITES (ТОЛЬКО ЧЕРЕЗ АДМИНА)
+  // =====================
+  inviteUser: (groupId, username) =>
+    request("invitations/", {
+      method: "POST",
+      body: JSON.stringify({
+        group: groupId,
+        receiver_username: username,
+      }),
+    }),
+
+  getInvites: () => request("invitations/"),
+
+  acceptInvite: (id) =>
+    request(`invitations/${id}/accept/`, {
+      method: "POST",
+    }),
+
+  declineInvite: (id) =>
+    request(`invitations/${id}/decline/`, {
+      method: "POST",
+    }),
+
+  // =====================
+  // USERS
+  // =====================
+  searchUsers: (query) => request(`users/search/?q=${query}`),
+
+  getMe: () => request("users/me/"),
 };

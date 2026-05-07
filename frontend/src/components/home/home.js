@@ -1,78 +1,56 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
-import Header from '../header/header';
-import Footer from '../footer/footer';
-import ProductCard from '../productCard/productCard';
-import FamilyGroup from '../familyGroup/familyGroup';
-import './home.css';
+import React, { useState, useEffect } from "react";
+import { useCart } from "../../context/cartContext";
+import { useNavigate } from "react-router";
+import Footer from "../footer/footer";
+import ProductCard from "../productCard/productCard";
+import FamilyGroup from "../familyGroup/familyGroup";
+import { api } from "../../api";
+import "./home.css";
 
 const Home = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-
-  // Загружаем продукты из БД
-// Загружаем продукты из БД
-useEffect(() => {
-  const loadProducts = async () => {
-    try {
-      const res = await fetch('/api/products');
-
-      if (!res.ok) {
-        throw new Error(`HTTP error: ${res.status}`);
-      }
-
-      const data = await res.json();
-      console.log('API response:', data);
-
-      // ✅ нормализация ответа
-      if (Array.isArray(data)) {
-        setProducts(data);
-      } else if (Array.isArray(data.data)) {
-        setProducts(data.data);
-      } else {
-        console.error('Unexpected data format:', data);
+  // 🛒 Загружаем продукты из backend
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const data = await api.getProducts();
+        setProducts(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Error loading products:", error);
         setProducts([]);
+      } finally {
+        setLoading(false);
       }
+    };
 
-    } catch (error) {
-      console.error('Error loading products:', error);
-      setProducts([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    loadProducts();
+  }, []);
 
-  loadProducts();
-}, []);
-
+  // 📦 категории (пока статические)
   const categories = [
-    { name: 'Электроника', icon: '📱', count: 45 },
-    { name: 'Бытовая техника', icon: '🔧', count: 32 },
-    { name: 'Одежда', icon: '👕', count: 28 },
-    { name: 'Детям', icon: '🧸', count: 19 },
-    { name: 'Спорт', icon: '⚽', count: 24 },
-    { name: 'Красота', icon: '💄', count: 16 }
+    { name: "Электроника", icon: "📱", count: 45 },
+    { name: "Бытовая техника", icon: "🔧", count: 32 },
+    { name: "Одежда", icon: "👕", count: 28 },
+    { name: "Детям", icon: "🧸", count: 19 },
+    { name: "Спорт", icon: "⚽", count: 24 },
+    { name: "Красота", icon: "💄", count: 16 },
   ];
 
-  const handleAddToCart = async (productId) => {
-    // Для демо добавляем первому члену семьи (id=1)
+  // ➕ добавить в общую (групповую) корзину
+  const { addToCart } = useCart();
+
+  const handleAddToCart = async (id) => {
     try {
-      await fetch(`/api/cart/add`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_id: productId, member_id: 1 })
-      });
-      console.log(`Товар ${productId} добавлен в корзину`);
-      // Обновляем FamilyGroup через событие
-      window.dispatchEvent(new Event('cartUpdated'));
-    } catch (error) {
-      console.error('Error adding to cart:', error);
+      await addToCart(id);
+    } catch (e) {
+      console.error(e);
     }
   };
 
+  // 👨‍👩‍👧‍👦 добавить в семейную корзину (та же логика)
   const handleAddToFamilyCart = async (productId) => {
     await handleAddToCart(productId);
     console.log(`Товар ${productId} добавлен в семейную корзину`);
@@ -84,25 +62,27 @@ useEffect(() => {
 
   return (
     <div className="home">
-      <Header />
-      
       <main className="main-content">
+        {/* HERO */}
         <section className="hero-section">
           <div className="hero-content">
             <h1>Семейный шопинг с выгодой</h1>
             <p>Объединяйтесь с близкими и покупайте вместе</p>
-            <button className="cta-btn" onClick={() => navigate('/account')}>
+            <button className="cta-btn" onClick={() => navigate("/account")}>
               Начать покупки
             </button>
           </div>
         </section>
 
+        {/* CATEGORIES */}
         <section className="categories-section">
           <div className="section-header">
             <h2>Популярные категории</h2>
-            <a href="/catalog" className="view-all">Все категории →</a>
+            <a href="/catalog" className="view-all">
+              Все категории →
+            </a>
           </div>
-          
+
           <div className="categories-grid">
             {categories.map((category, index) => (
               <div key={index} className="category-card">
@@ -114,10 +94,13 @@ useEffect(() => {
           </div>
         </section>
 
+        {/* MAIN CONTENT */}
         <div className="content-wrapper">
+          {/* PRODUCTS */}
           <div className="products-section">
             <div className="section-header">
               <h2>Рекомендуем для семьи</h2>
+
               <div className="products-filter">
                 <select className="filter-select">
                   <option>По популярности</option>
@@ -127,38 +110,40 @@ useEffect(() => {
                 </select>
               </div>
             </div>
-            
+
             <div className="products-grid">
-              {products.map(product => (
-                <ProductCard 
-                  key={product.id} 
+              {products.map((product) => (
+                <ProductCard
+                  key={product.id}
                   product={{
                     ...product,
-                    oldPrice: product.old_price,
+                    oldPrice: product.old_price || null,
                     inCart: false,
-                    familyMembers: []
+                    familyMembers: [],
                   }}
                   onAddToCart={handleAddToCart}
                   onAddToFamilyCart={handleAddToFamilyCart}
                 />
               ))}
             </div>
-            
+
             <button className="load-more-btn">Загрузить еще</button>
           </div>
-          
+
+          {/* SIDEBAR */}
           <aside className="sidebar">
             <FamilyGroup />
-            
+
             <div className="special-offers">
               <h3>Специальные предложения</h3>
+
               <div className="offer-card">
                 <span className="offer-tag">Семейный набор</span>
                 <h4>Скидка 15% на технику для дома</h4>
                 <p>При покупке от 3 товаров</p>
                 <button className="offer-btn">Подробнее</button>
               </div>
-              
+
               <div className="offer-card">
                 <span className="offer-tag">Акция</span>
                 <h4>2=3 на детские товары</h4>
@@ -169,7 +154,7 @@ useEffect(() => {
           </aside>
         </div>
       </main>
-      
+
       <Footer />
     </div>
   );
