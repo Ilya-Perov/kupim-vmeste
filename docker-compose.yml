@@ -1,29 +1,40 @@
 services:
   backend:
-    image: ${DOCKER_USERNAME}/backend:${IMAGE_TAG}
+    build: 
+      context: ./backend
+      dockerfile: dockerfile
     restart: always
+    volumes:
+      - ./backend:/app  # Монтируем код бэкенда
     environment:
       DB_HOST: db
       DB_PORT: 5432
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: family_shop
-      REDIS_URL: redis://redis:6379
-      SESSION_SECRET: supersecret
-      NODE_ENV: production
-    deploy:
-      replicas: 3
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "5000:5000"
     depends_on:
       - db
 
   frontend:
-    image: ${DOCKER_USERNAME}/frontend:${IMAGE_TAG}
+    build:
+      context: ./frontend
+      dockerfile: dockerfile.dev # Указываем на наш новый файл
+    volumes:
+      - ./frontend:/app          # Пробрасываем код (Hot Reload)
+      - /app/node_modules        # Не трогаем модули внутри контейнера
     ports:
-      - "80:80"
+      - "3000:3000"              # Заходим в браузере на http://localhost:3000
+    environment:
+      - CHOKIDAR_USEPOLLING=true # Чтобы Windows подхватывала изменения файлов
 
   db:
     image: postgres:15
     restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Данные БД не пропадут при перезагрузке
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -31,3 +42,6 @@ services:
 
   redis:
     image: redis:7-alpine
+
+volumes:
+  postgres_data: # Объявляем том для базы данных

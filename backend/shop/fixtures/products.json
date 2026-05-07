@@ -1,0 +1,24 @@
+[
+  {
+    "model": "shop.product",
+    "pk": 1,
+    "fields": {
+      "name": "Смартфон Xiaomi Redmi Note 12",
+      "price": "24990.00",
+      "old_price": "29990.00",
+      "image": "https://via.placeholder.com/300x200",
+      "rating": 4
+    }
+  },
+  {
+    "model": "shop.product",
+    "pk": 2,
+    "fields": {
+      "name": "Наушники Sony WH-1000XM4",
+      "price": "27990.00",
+      "old_price": null,
+      "image": "https://via.placeholder.com/300x200",
+      "rating": 5
+    }
+  }
+]

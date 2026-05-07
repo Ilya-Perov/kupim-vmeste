@@ -1,0 +1,33 @@
+services:
+  backend:
+    image: ${DOCKER_USERNAME}/backend:${IMAGE_TAG}
+    restart: always
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: family_shop
+      REDIS_URL: redis://redis:6379
+      SESSION_SECRET: supersecret
+      NODE_ENV: production
+    deploy:
+      replicas: 3
+    depends_on:
+      - db
+
+  frontend:
+    image: ${DOCKER_USERNAME}/frontend:${IMAGE_TAG}
+    ports:
+      - "80:80"
+
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: family_shop
+
+  redis:
+    image: redis:7-alpine
