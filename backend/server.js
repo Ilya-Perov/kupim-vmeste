@@ -14,10 +14,17 @@ const instanceId = `${os.hostname()}-${process.pid}`;
 
 let requestCount = 0;
 
-// лог каждого запроса
+/* ================= CORE MIDDLEWARE ================= */
+
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
+
+app.use(express.json());
+
 app.use((req, res, next) => {
   requestCount++;
-
   console.log(`[${instanceId}] ${req.method} ${req.url}`);
 
   res.setHeader('X-Instance-Id', instanceId);
@@ -26,10 +33,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// Redis клиент для сессий
-const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://redis:6379'
+/* ================= POSTGRES ================= */
+
+const pool = new Pool({
+  host: process.env.DB_HOST || 'db',
+  port: process.env.DB_PORT || 5432,
+  user: process.env.POSTGRES_USER || 'postgres',
+  password: process.env.POSTGRES_PASSWORD || 'postgres',
+  database: process.env.POSTGRES_DB || 'family_shop',
 });
+
+/* ================= DB INIT ================= */
 
 redisClient.connect().catch(console.error);
 
@@ -122,7 +136,6 @@ async function initDB() {
       )
     `);
 
-    // Добавляем таблицу пользователей для аутентификации
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -132,6 +145,8 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    /* ===== SEED PRODUCTS ===== */
 
     const productsCount = await client.query('SELECT COUNT(*) FROM products');
     if (parseInt(productsCount.rows[0].count) === 0) {
@@ -146,6 +161,8 @@ async function initDB() {
       `);
     }
 
+    /* ===== SEED FAMILY ===== */
+
     const membersCount = await client.query('SELECT COUNT(*) FROM family_members');
     if (parseInt(membersCount.rows[0].count) === 0) {
       await client.query(`
@@ -157,7 +174,8 @@ async function initDB() {
       `);
     }
 
-    // Создаем тестового пользователя (пароль: test123)
+    /* ===== SEED USERS ===== */
+
     const usersCount = await client.query('SELECT COUNT(*) FROM users');
     if (parseInt(usersCount.rows[0].count) === 0) {
       await client.query(`
@@ -167,122 +185,140 @@ async function initDB() {
       `);
     }
 
-    console.log('Database initialized with test data');
-  } catch (error) {
-    console.error('Database init error:', error);
+    console.log('Database initialized');
   } finally {
     client.release();
   }
 }
 
-// ========== НОВЫЕ API для аутентификации ==========
+/* ================= REDIS + SESSION ================= */
 
-// Логин
-app.post('/api/login', async (req, res) => {
-  const { username, password } = req.body;
-  
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://redis:6379'
+});
+
+/* ================= START APP ================= */
+
+async function start() {
   try {
-    const result = await pool.query(
-      'SELECT * FROM users WHERE username = $1 AND password_hash = $2',
-      [username, password]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    
-    const user = result.rows[0];
-    req.session.userId = user.id;
-    req.session.username = user.username;
-    req.session.familyMemberId = user.family_member_id;
-    
-    res.json({ 
-      success: true, 
-      user: { id: user.id, username: user.username },
-      hostname: os.hostname()
+    /* 1. Redis FIRST */
+    await redisClient.connect();
+    console.log('Redis connected');
+
+    /* 2. SESSION SECOND */
+    app.use(session({
+      store: new RedisStore({ client: redisClient }),
+      secret: process.env.SESSION_SECRET || 'dev-secret',
+      resave: false,
+      saveUninitialized: false,
+      name: 'sessionId',
+      cookie: {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: false,
+        maxAge: 1000 * 60 * 60 * 24
+      }
+    }));
+
+    /* 3. AUTH ROUTES */
+    app.post('/api/login', async (req, res) => {
+      const { username, password } = req.body;
+
+      try {
+        const result = await pool.query(
+          'SELECT * FROM users WHERE username = $1 AND password_hash = $2',
+          [username, password]
+        );
+
+        if (!result.rows.length) {
+          return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        const user = result.rows[0];
+
+        req.session.userId = user.id;
+        req.session.username = user.username;
+        req.session.familyMemberId = user.family_member_id;
+
+        res.json({
+          success: true,
+          user: {
+            id: user.id,
+            username: user.username
+          }
+        });
+
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
-// Проверка сессии (кто я?)
-app.get('/api/me', async (req, res) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ authenticated: false });
-  }
-  
-  try {
-    const result = await pool.query(
-      'SELECT id, username, family_member_id FROM users WHERE id = $1',
-      [req.session.userId]
-    );
-    
-    if (result.rows.length === 0) {
-      req.session.destroy();
-      return res.status(401).json({ authenticated: false });
-    }
-    
-    res.json({ 
-      authenticated: true, 
-      user: result.rows[0],
-      hostname: os.hostname()
+    app.get('/api/me', (req, res) => {
+      if (!req.session.userId) {
+        return res.status(401).json({ authenticated: false });
+      }
+
+      res.json({
+        authenticated: true,
+        user: {
+          id: req.session.userId,
+          username: req.session.username,
+          family_member_id: req.session.familyMemberId
+        }
+      });
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
-// Logout
-app.post('/api/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ error: 'Logout failed' });
-    }
-    res.json({ success: true });
-  });
-});
+    app.post('/api/logout', (req, res) => {
+      req.session.destroy(() => {
+        res.json({ success: true });
+      });
+    });
 
-// ========== СУЩЕСТВУЮЩИЕ API (с добавлением hostname для демонстрации) ==========
+    /* 4. OTHER API */
 
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    instance: instanceId,
-    hostname: os.hostname(),
-    pid: process.pid,
-    uptime: process.uptime(),
-    requestCount,
-    memoryUsage: process.memoryUsage(),
-    timestamp: new Date().toISOString()
-  });
-});
+    app.get('/api/products', async (req, res) => {
+      const result = await pool.query('SELECT * FROM products ORDER BY id');
+      res.json(result.rows);
+    });
 
-app.get('/api/products', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM products ORDER BY id');
-    res.json(result.rows);  // ← ПРЯМО МАССИВ
-  } catch (error) {
-    console.error('Error fetching products:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
+    app.get('/api/family-members', async (req, res) => {
+      const result = await pool.query('SELECT * FROM family_members ORDER BY id');
+      res.json(result.rows);
+    });
 
-app.get('/api/family-members', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM family_members ORDER BY id');
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching family members:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
+    app.post('/api/cart/add', async (req, res) => {
+      const { product_id, member_id } = req.body;
 
-app.post('/api/cart/add', async (req, res) => {
-  const { product_id, member_id } = req.body;
-  
-  if (!product_id || !member_id) {
-    return res.status(400).json({ error: 'Missing required fields' });
+      await pool.query(
+        'INSERT INTO cart_items (product_id, member_id) VALUES ($1, $2)',
+        [product_id, member_id]
+      );
+
+      await pool.query(
+        'UPDATE family_members SET items_count = items_count + 1 WHERE id = $1',
+        [member_id]
+      );
+
+      res.json({ success: true });
+    });
+
+    app.get('/api/cart/total', async (req, res) => {
+      const result = await pool.query('SELECT COUNT(*) as total FROM cart_items');
+      res.json({ total: parseInt(result.rows[0].total) });
+    });
+
+    /* 5. INIT DB */
+    await initDB();
+
+    /* 6. START SERVER */
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Backend running on port ${PORT}`);
+      console.log(`Instance: ${instanceId}`);
+    });
+
+  } catch (err) {
+    console.error('Startup error:', err);
+    process.exit(1);
   }
   
   try {
