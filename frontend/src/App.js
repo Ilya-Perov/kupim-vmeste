@@ -6,7 +6,7 @@ import GroupPage from "./components/groupPage/groupPage";
 import LoginPage from "./components/loginPage/loginPage";
 import Header from "./components/header/header";
 
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes } from "react-router";
 
 import { AuthProvider } from "./context/authContext";
 import { CartProvider } from "./context/cartContext";
@@ -21,7 +21,7 @@ function App() {
           <Header />
 
           <Routes>
-            {/* 🌍 PUBLIC */}
+            {/* PUBLIC */}
             <Route path="/" element={<Home />} />
 
             <Route
@@ -33,7 +33,7 @@ function App() {
               }
             />
 
-            {/* 🔐 PROTECTED */}
+            {/* PROTECTED */}
             <Route
               path="/account"
               element={
