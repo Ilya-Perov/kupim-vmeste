@@ -23,13 +23,13 @@ export const CartProvider = ({ children }) => {
   }, []);
 
   const addToCart = async (productId) => {
-    await api.addToCart(productId);
-    await loadCart();
+    const updated = await api.addToCart(productId);
+    setCart(updated);
   };
 
   const removeFromCart = async (productId) => {
-    await api.removeFromCart(productId);
-    await loadCart();
+    const updated = await api.removeFromCart(productId);
+    setCart(updated);
   };
 
   return (

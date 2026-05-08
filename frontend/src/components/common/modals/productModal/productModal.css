@@ -1,0 +1,210 @@
+/* =========================
+   PRODUCT CARD
+========================= */
+
+.product-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition:
+    transform 0.3s,
+    box-shadow 0.3s;
+  position: relative;
+  cursor: pointer;
+}
+
+.product-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* =========================
+   IMAGE (CARD ONLY)
+========================= */
+
+.product-image-card {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+}
+
+.product-image-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.product-card:hover .product-image-card img {
+  transform: scale(1.1);
+}
+
+/* discount badge */
+.discount-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #ff6b6b;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  z-index: 1;
+}
+
+/* =========================
+   INFO
+========================= */
+
+.product-info {
+  padding: 1.5rem;
+}
+
+.product-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #333;
+  line-height: 1.4;
+
+  height: 2.8em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.product-rating {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 0.5rem;
+}
+
+.star {
+  color: #ddd;
+  font-size: 1rem;
+}
+
+.star.filled {
+  color: #ffc107;
+}
+
+/* =========================
+   PRICE
+========================= */
+
+.product-price {
+  margin-bottom: 1rem;
+}
+
+.current-price {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.old-price {
+  margin-left: 10px;
+  font-size: 1rem;
+  color: #999;
+  text-decoration: line-through;
+}
+
+/* =========================
+   ACTIONS
+========================= */
+
+.product-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.add-to-cart-btn,
+.details-btn {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* add to cart */
+.add-to-cart-btn {
+  background: #667eea;
+  color: white;
+}
+
+.add-to-cart-btn:hover {
+  background: #5a67d8;
+}
+
+.add-to-cart-btn.in-cart {
+  background: #48bb78;
+}
+
+/* details */
+.details-btn {
+  background: #edf2f7;
+  color: #2d3748;
+  border: 1px solid #cbd5e0;
+}
+
+.details-btn:hover {
+  background: #e2e8f0;
+}
+
+/* =========================
+   MODAL (SEPARATE LAYER)
+========================= */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 99999;
+}
+
+.modal-content {
+  background: #fff;
+  width: 500px;
+  max-width: 90%;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+/* modal image (IMPORTANT: NO CONFLICT WITH CARD) */
+.modal-image {
+  width: 100%;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  height: auto;
+  object-fit: contain;
+}
+
+/* optional header */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.modal-body {
+  margin-top: 15px;
+}

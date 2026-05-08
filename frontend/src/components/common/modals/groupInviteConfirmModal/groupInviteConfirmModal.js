@@ -16,7 +16,6 @@ const GroupInviteConfirmModal = ({
     if (isOpen) {
       setVisible(true);
 
-      // автозакрытие через 10 секунд
       timer = setTimeout(() => {
         handleClose();
       }, 10000);
@@ -28,7 +27,6 @@ const GroupInviteConfirmModal = ({
   const handleClose = () => {
     setVisible(false);
 
-    // даём время анимации перед unmount
     setTimeout(() => {
       onCancel();
     }, 250);
@@ -37,8 +35,14 @@ const GroupInviteConfirmModal = ({
   if (!isOpen && !visible) return null;
 
   return (
-    <div className={`modal-overlay ${visible ? "show" : "hide"}`}>
-      <div className={`modal-box ${visible ? "show" : "hide"}`}>
+    <div
+      className={`group-modal-overlay ${visible ? "show" : ""}`}
+      onClick={handleClose}
+    >
+      <div
+        className={`group-modal-box ${visible ? "show" : ""}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <h3>📨 Приглашение в группу</h3>
 
         <p className="modal-text">

@@ -5,6 +5,7 @@ import Account from "./components/account/account";
 import GroupPage from "./components/groupPage/groupPage";
 import LoginPage from "./components/loginPage/loginPage";
 import Header from "./components/header/header";
+import Catalog from "./components/catalog/catalog";
 
 import { BrowserRouter as Router, Route, Routes } from "react-router";
 
@@ -51,6 +52,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            <Route path="/catalog" element={<Catalog />} />
           </Routes>
         </Router>
       </CartProvider>

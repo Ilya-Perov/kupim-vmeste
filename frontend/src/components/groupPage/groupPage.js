@@ -8,10 +8,10 @@ const GroupPage = () => {
   const [groups, setGroups] = useState([]);
   const [activeGroup, setActiveGroup] = useState(null);
   const [members, setMembers] = useState([]);
+  const [cart, setCart] = useState(null);
   const [newGroupName, setNewGroupName] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingUser, setPendingUser] = useState(null);
 
@@ -51,6 +51,18 @@ const GroupPage = () => {
     }
   };
 
+  // =====================
+  // LOAD CART
+  // =====================
+  const loadCart = async (groupId) => {
+    try {
+      const data = await api.getCart(groupId);
+      setCart(data);
+    } catch (e) {
+      console.error("Cart load error:", e);
+    }
+  };
+
   useEffect(() => {
     const init = async () => {
       await loadGroups();
@@ -63,6 +75,7 @@ const GroupPage = () => {
   useEffect(() => {
     if (activeGroup?.id) {
       loadMembers(activeGroup.id);
+      loadCart(activeGroup.id);
     }
   }, [activeGroup]);
 
@@ -83,7 +96,7 @@ const GroupPage = () => {
   };
 
   // =====================
-  // OPEN INVITE MODAL
+  // INVITE
   // =====================
   const handleInviteClick = (user) => {
     if (!activeGroup || !user) return;
@@ -92,9 +105,6 @@ const GroupPage = () => {
     setModalOpen(true);
   };
 
-  // =====================
-  // CONFIRM INVITE
-  // =====================
   const confirmInvite = async () => {
     try {
       await api.inviteUser(activeGroup.id, pendingUser.username);
@@ -106,17 +116,24 @@ const GroupPage = () => {
     }
   };
 
-  // =====================
-  // CANCEL MODAL
-  // =====================
   const cancelInvite = () => {
     setModalOpen(false);
     setPendingUser(null);
   };
 
   // =====================
-  // LOADING
+  // CART ACTIONS
   // =====================
+  const addToCart = async (productId) => {
+    const updated = await api.addToCart(productId, activeGroup.id);
+    setCart(updated);
+  };
+
+  const removeFromCart = async (productId) => {
+    const updated = await api.removeFromCart(productId, activeGroup.id);
+    setCart(updated);
+  };
+
   if (loading) return <div className="loading">Загрузка...</div>;
 
   return (
@@ -135,14 +152,10 @@ const GroupPage = () => {
         </div>
 
         <div className="group-list">
-          {groups.length === 0 && <p className="muted">Нет групп</p>}
-
           {groups.map((g) => (
             <div
               key={g.id}
-              className={`group-item ${
-                activeGroup?.id === g.id ? "active" : ""
-              }`}
+              className={`group-item ${activeGroup?.id === g.id ? "active" : ""}`}
               onClick={() => setActiveGroup(g)}
             >
               {g.name}
@@ -159,7 +172,6 @@ const GroupPage = () => {
         {activeGroup && (
           <div className="invite-box">
             <h3>📨 Пригласить участника</h3>
-
             <UserAutocomplete onSelect={handleInviteClick} />
           </div>
         )}
@@ -176,6 +188,34 @@ const GroupPage = () => {
                 👤 {m.username}
               </div>
             ))
+          )}
+        </div>
+
+        {/* CART */}
+        <div className="cart-section">
+          <h3>🛒 Общая корзина</h3>
+
+          {!cart?.items?.length ? (
+            <p className="muted">Корзина пуста</p>
+          ) : (
+            cart.items.map((item) => (
+              <div key={item.id} className="cart-item">
+                <span>
+                  {item.product.name} × {item.quantity}
+                </span>
+
+                <div className="cart-actions">
+                  <button onClick={() => removeFromCart(item.product.id)}>
+                    -
+                  </button>
+                  <button onClick={() => addToCart(item.product.id)}>+</button>
+                </div>
+              </div>
+            ))
+          )}
+
+          {cart && (
+            <div className="cart-total">💰 Итого: {cart.total_cart_price}</div>
           )}
         </div>
       </div>
