@@ -1,0 +1,35 @@
+.autocomplete {
+  position: relative;
+  width: 50%;
+  align-self: center;
+  margin-left: 3%;
+}
+
+.autocomplete input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #7c7c7c;
+  border-radius: 8px;
+}
+
+.dropdown {
+  position: absolute;
+  top: 110%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.dropdown-item {
+  padding: 10px;
+  cursor: pointer;
+}
+
+.dropdown-item:hover {
+  background: #f3f3f3;
+}
