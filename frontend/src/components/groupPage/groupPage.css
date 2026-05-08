@@ -1,0 +1,99 @@
+.group-page {
+  display: flex;
+  height: 100vh;
+  background: #f5f7fb;
+  font-family: sans-serif;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width: 280px;
+  background: white;
+  border-right: 1px solid #d4d4d4;
+  padding: 20px;
+  border-radius: 3%;
+}
+
+.sidebar h2 {
+  margin-bottom: 15px;
+}
+
+.create-group {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.create-group input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #7c7c7c;
+}
+
+.create-group button {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.group-item {
+  padding: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #f1f1f1;
+}
+
+.group-item.active {
+  background: #667eea;
+  color: white;
+}
+
+/* MAIN */
+.main {
+  flex: 1;
+  padding: 20px;
+}
+
+.invite-box {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.invite-box input {
+  flex: 1;
+  padding: 8px;
+}
+
+.invite-box button {
+  background: #4caf50;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.members {
+  background: white;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.member {
+  padding: 5px 0;
+}
+
+.cart {
+  background: white;
+  padding: 15px;
+  border-radius: 10px;
+}

@@ -5,29 +5,46 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: family_shop
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
-      SESSION_SECRET: supersecret
-      NODE_ENV: production
-    deploy:
-      replicas: 3
+      SESSION_SECRET: ${SESSION_SECRET}
+      NODE_ENV: ${NODE_ENV}
     depends_on:
       - db
+      - redis
 
   frontend:
     image: ${DOCKER_USERNAME}/frontend:${IMAGE_TAG}
+    restart: always
+    depends_on:
+      - backend
+
+  nginx:
+    image: nginx:alpine
+    restart: always
     ports:
       - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
 
   db:
     image: postgres:15
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: family_shop
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine
+    restart: always
+
+volumes:
+  postgres_data:

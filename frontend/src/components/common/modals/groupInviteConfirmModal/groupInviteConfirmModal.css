@@ -1,0 +1,66 @@
+/* =========================
+   GROUP MODAL (NAMESPACED)
+========================= */
+
+.group-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  z-index: 999999;
+  opacity: 0;
+  visibility: hidden;
+
+  transition:
+    opacity 0.25s ease,
+    visibility 0.25s ease;
+}
+
+.group-modal-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.group-modal-box {
+  width: 420px;
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+
+  transform: scale(0.9);
+  opacity: 0;
+
+  transition:
+    transform 0.25s ease,
+    opacity 0.25s ease;
+}
+
+.group-modal-overlay.show .group-modal-box {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* TEXT */
+.modal-text {
+  margin-top: 10px;
+}
+
+.modal-hint {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #666;
+}
+
+/* BUTTON */
+.btn-primary {
+  background: #4caf50;
+  border: none;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
