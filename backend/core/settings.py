@@ -9,7 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # =========================
 SECRET_KEY = os.getenv(
     "SESSION_SECRET",
-    "django-insecure-ue&h#(oifmq(rjr__f!u4l3mo9lvmy94h87i_!q!ew46!-ibll"
+    "django-insecure-ue&h#(oifmq(rjr__f!u4l3mo9lvmy94h87i_!q!ew46!-ibll",
 )
 
 DEBUG = True
@@ -27,16 +27,15 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-
     # Third-party
     "rest_framework",
     "corsheaders",
     "rest_framework_simplejwt",
-
     # Local apps
     "groups",
     "shop",
     "users",
+    "orders",
 ]
 
 # =========================
@@ -44,13 +43,10 @@ INSTALLED_APPS = [
 # =========================
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
-
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
-
-    "middleware.request_id_middleware.RequestIDMiddleware", 
-
+    "middleware.request_id_middleware.RequestIDMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -97,25 +93,12 @@ DATABASES = {
 # =========================
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME":
-            "django.contrib.auth.password_validation."
-            "UserAttributeSimilarityValidator"
+        "NAME": "django.contrib.auth.password_validation."
+        "UserAttributeSimilarityValidator"
     },
-    {
-        "NAME":
-            "django.contrib.auth.password_validation."
-            "MinimumLengthValidator"
-    },
-    {
-        "NAME":
-            "django.contrib.auth.password_validation."
-            "CommonPasswordValidator"
-    },
-    {
-        "NAME":
-            "django.contrib.auth.password_validation."
-            "NumericPasswordValidator"
-    },
+    {"NAME": "django.contrib.auth.password_validation." "MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation." "CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation." "NumericPasswordValidator"},
 ]
 
 # =========================
@@ -125,7 +108,6 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
-
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
@@ -152,21 +134,18 @@ CORS_ALLOW_CREDENTIALS = True
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-
     "formatters": {
         "json": {
             "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
             "fmt": "%(asctime)s %(levelname)s %(name)s %(message)s %(request_id)s %(username)s",
         },
     },
-
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "json",
         },
     },
-
     "loggers": {
         # 🚫 ОТКЛЮЧАЕМ стандартные HTTP логи Django
         "django.server": {
@@ -175,7 +154,6 @@ LOGGING = {
             "propagate": False,
         },
     },
-
     "root": {
         "handlers": ["console"],
         "level": "INFO",

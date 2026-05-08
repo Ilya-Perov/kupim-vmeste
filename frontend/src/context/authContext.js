@@ -38,7 +38,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     loadUser();
 
-    // 🔥 слушаем logout из api.js
+    //  слушаем logout из api.js
     const handler = () => {
       setUser(null);
     };

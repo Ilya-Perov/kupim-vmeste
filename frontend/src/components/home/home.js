@@ -5,11 +5,14 @@ import Footer from "../footer/footer";
 import ProductCard from "../productCard/productCard";
 import { api } from "../../api";
 import { useCart } from "../../context/cartContext";
+import { useAuth } from "../../context/authContext";
 import "./home.css";
 
 const Home = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { addToCart } = useCart();
+  const isAuth = !!user;
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -78,15 +81,16 @@ const Home = () => {
               <ProductCard
                 key={product.id}
                 product={product}
-                mode="modal"
+                mode="cart"
+                onAddToCart={isAuth ? handleAddToCart : undefined}
                 onOpen={openModal}
+                isAuth={isAuth}
               />
             ))}
           </div>
         </section>
       </main>
 
-      {/* 🔥 MODAL */}
       {selectedProduct && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>

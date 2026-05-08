@@ -7,7 +7,6 @@ const ProductModal = ({ isOpen, product, onClose }) => {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-
         <img src={product.image} alt={product.name} className="modal-image" />
 
         <h2>{product.name}</h2>
@@ -19,9 +18,7 @@ const ProductModal = ({ isOpen, product, onClose }) => {
         </div>
 
         {product.oldPrice && (
-          <div>
-            🏷 Старая цена: {product.oldPrice.toLocaleString()} ₽
-          </div>
+          <div>🏷 Старая цена: {product.oldPrice.toLocaleString()} ₽</div>
         )}
 
         <div className="info-grid">
@@ -38,7 +35,6 @@ const ProductModal = ({ isOpen, product, onClose }) => {
         <button className="close-btn" onClick={onClose}>
           Закрыть
         </button>
-
       </div>
     </div>
   );

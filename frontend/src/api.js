@@ -52,7 +52,9 @@ export const api = {
 
     const data = await res.json();
 
-    if (!res.ok) throw new Error(data.detail || "Login error");
+    if (!res.ok) {
+      throw new Error(data.detail || "Login error");
+    }
 
     localStorage.setItem("access", data.access);
     localStorage.setItem("refresh", data.refresh);
@@ -62,7 +64,29 @@ export const api = {
 
   logout,
 
+  register: async (username, password) => {
+    const res = await fetch(`${API_URL}/users/auth/register/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data?.detail || "Register error");
+    }
+
+    return data;
+  },
+
+  // =====================
+  // USERS
+  // =====================
   getMe: () => request("users/me/"),
+
+  searchUsers: (query) =>
+    request(`users/search/?q=${encodeURIComponent(query)}`),
 
   // =====================
   // PRODUCTS
@@ -72,18 +96,26 @@ export const api = {
   // =====================
   // CART
   // =====================
-  getCart: () => request("cart/my_cart/"),
 
-  addToCart: (product_id) =>
+  //  ВАЖНО: group_id передаем query param
+  getCart: (groupId) => request(`cart/my_cart/?group_id=${groupId}`),
+
+  addToCart: (product_id, group_id) =>
     request("cart/add/", {
       method: "POST",
-      body: JSON.stringify({ product_id }),
+      body: JSON.stringify({
+        product_id,
+        group_id,
+      }),
     }),
 
-  removeFromCart: (product_id) =>
+  removeFromCart: (product_id, group_id) =>
     request("cart/remove/", {
       method: "POST",
-      body: JSON.stringify({ product_id }),
+      body: JSON.stringify({
+        product_id,
+        group_id,
+      }),
     }),
 
   // =====================
@@ -100,7 +132,7 @@ export const api = {
   getGroupMembers: (groupId) => request(`my-groups/${groupId}/members/`),
 
   // =====================
-  // INVITES (ТОЛЬКО ЧЕРЕЗ АДМИНА)
+  // INVITES
   // =====================
   inviteUser: (groupId, username) =>
     request("invitations/", {
@@ -123,10 +155,9 @@ export const api = {
       method: "POST",
     }),
 
-  // =====================
-  // USERS
-  // =====================
-  searchUsers: (query) => request(`users/search/?q=${query}`),
-
-  getMe: () => request("users/me/"),
+  checkoutCart: (group_id) =>
+    request("cart/checkout/", {
+      method: "POST",
+      body: JSON.stringify({ group_id }),
+    }),
 };

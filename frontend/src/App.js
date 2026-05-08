@@ -6,6 +6,8 @@ import GroupPage from "./components/groupPage/groupPage";
 import LoginPage from "./components/loginPage/loginPage";
 import Header from "./components/header/header";
 import Catalog from "./components/catalog/catalog";
+import OrderPage from "./components/orderPage/orderPage";
+import RegisterPage from "./components/registerPage/registerPage";
 
 import { BrowserRouter as Router, Route, Routes } from "react-router";
 
@@ -54,6 +56,10 @@ function App() {
             />
 
             <Route path="/catalog" element={<Catalog />} />
+
+            <Route path="/order/:groupId" element={<OrderPage />} />
+
+            <Route path="/register" element={<RegisterPage />} />
           </Routes>
         </Router>
       </CartProvider>

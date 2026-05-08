@@ -3,21 +3,27 @@ import { api } from "../../api";
 import ProductCard from "../productCard/productCard";
 import ProductModal from "../common/modals/productModal/productModal";
 import { normalizeProduct } from "../../utlis/normalizeProduct";
+import { useAuth } from "../../context/authContext";
 import "./catalog.css";
 
 const Catalog = () => {
+  const { user } = useAuth();
+
   const [products, setProducts] = useState([]);
   const [groups, setGroups] = useState([]);
   const [activeGroup, setActiveGroup] = useState(null);
-  const [cart, setCart] = useState(null);
-  const [loading, setLoading] = useState(true);
 
+  const [cart, setCart] = useState(null); //  ВОТ ЭТО НЕ ХВАТАЛО
+
+  const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   // =====================
-  // LOAD DATA
+  // LOAD CART
   // =====================
   const loadCart = async (groupId) => {
+    if (!groupId || !user) return;
+
     try {
       const data = await api.getCart(groupId);
       setCart(data);
@@ -27,24 +33,27 @@ const Catalog = () => {
     }
   };
 
+  // =====================
+  // LOAD DATA
+  // =====================
   const loadData = async () => {
     try {
-      const [productsData, groupsData] = await Promise.all([
-        api.getProducts(),
-        api.getMyGroups(),
-      ]);
-
+      const productsData = await api.getProducts();
       setProducts(Array.isArray(productsData) ? productsData : []);
 
-      const safeGroups = Array.isArray(groupsData)
-        ? groupsData
-        : groupsData?.results || [];
+      if (user) {
+        const groupsData = await api.getMyGroups();
 
-      setGroups(safeGroups);
+        const safeGroups = Array.isArray(groupsData)
+          ? groupsData
+          : groupsData?.results || [];
 
-      if (safeGroups.length > 0) {
-        setActiveGroup(safeGroups[0]);
-        await loadCart(safeGroups[0].id);
+        setGroups(safeGroups);
+
+        if (safeGroups.length > 0) {
+          setActiveGroup(safeGroups[0]);
+          await loadCart(safeGroups[0].id); //  теперь грузим корзину
+        }
       }
     } catch (e) {
       console.error("Catalog load error:", e);
@@ -55,18 +64,7 @@ const Catalog = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
-
-  // =====================
-  // MODAL
-  // =====================
-  const openModal = (product) => {
-    setSelectedProduct(normalizeProduct(product));
-  };
-
-  const closeModal = () => {
-    setSelectedProduct(null);
-  };
+  }, [user]);
 
   // =====================
   // CHANGE GROUP
@@ -80,61 +78,53 @@ const Catalog = () => {
   // ADD TO CART
   // =====================
   const handleAddToCart = async (productId) => {
-    if (!activeGroup) return;
+    if (!user || !activeGroup) return;
 
     try {
-      await api.addToCart(productId);
-      await loadCart(activeGroup.id);
+      await api.addToCart(productId, activeGroup.id);
+      await loadCart(activeGroup.id); //  обновляем
     } catch (e) {
       console.error(e);
     }
   };
 
-  // =====================
-  // REMOVE FROM CART
-  // =====================
-  const handleRemove = async (productId) => {
-    if (!activeGroup) return;
+  const isAuth = !!user;
 
-    try {
-      await api.removeFromCart(productId);
-      await loadCart(activeGroup.id);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  if (loading) {
-    return <div className="loading">Загрузка каталога...</div>;
-  }
+  if (loading) return <div className="loading">Загрузка каталога...</div>;
 
   return (
     <div className="catalog">
-      {/* HEADER */}
       <div className="catalog-header">
         <h1>🛍 Каталог товаров</h1>
 
-        <div className="group-selector">
-          <label>Группа:</label>
+        {isAuth && (
+          <div className="group-selector">
+            <label>Группа:</label>
 
-          <select
-            value={activeGroup?.id || ""}
-            onChange={(e) =>
-              handleSelectGroup(
-                groups.find((g) => g.id === Number(e.target.value)),
-              )
-            }
-          >
-            {groups.map((group) => (
-              <option key={group.id} value={group.id}>
-                {group.name}
-              </option>
-            ))}
-          </select>
-        </div>
+            <select
+              value={activeGroup?.id || ""}
+              onChange={(e) =>
+                handleSelectGroup(
+                  groups.find((g) => g.id === Number(e.target.value)),
+                )
+              }
+            >
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
-      {/* LAYOUT */}
+      {!isAuth && (
+        <div className="guest-info">
+          👋 Гость — корзина недоступна
+        </div>
+      )}
+
       <div className="catalog-layout">
         {/* PRODUCTS */}
         <div className="catalog-grid">
@@ -142,43 +132,35 @@ const Catalog = () => {
             <ProductCard
               key={product.id}
               product={product}
-              mode="cart"
-              onAddToCart={handleAddToCart}
-              onOpen={openModal} // 🔥 ВАЖНО
+              onAddToCart={isAuth ? handleAddToCart : undefined}
+              onOpen={(p) => setSelectedProduct(normalizeProduct(p))}
+              isAuth={isAuth}
             />
           ))}
         </div>
 
-        {/* CART SIDEBAR */}
-        <aside className="cart-sidebar">
-          <h3>🛒 Корзина группы</h3>
+        {/* CART */}
+        {isAuth && (
+          <aside className="cart-sidebar">
+            <h3>🛒 Корзина группы</h3>
 
-          {!cart || !cart.items?.length ? (
-            <p className="muted">Корзина пуста</p>
-          ) : (
-            cart.items.map((item) => (
-              <div key={item.id} className="cart-item">
-                <div className="cart-item-info">
-                  <span className="cart-name">{item.product.name}</span>
-                  <span className="cart-qty">x{item.quantity}</span>
+            {!cart?.items?.length ? (
+              <p className="muted">Корзина пуста</p>
+            ) : (
+              cart.items.map((item) => (
+                <div key={item.id} className="cart-item">
+                  {item.product.name} × {item.quantity}
                 </div>
-
-                <button
-                  className="remove-btn"
-                  onClick={() => handleRemove(item.product.id)}
-                >
-                  ✕
-                </button>
-              </div>
-            ))
-          )}
-        </aside>
+              ))
+            )}
+          </aside>
+        )}
       </div>
 
       <ProductModal
         isOpen={!!selectedProduct}
         product={selectedProduct}
-        onClose={closeModal}
+        onClose={() => setSelectedProduct(null)}
       />
     </div>
   );

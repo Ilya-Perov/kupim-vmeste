@@ -80,7 +80,7 @@ const Footer = () => {
       </div>
 
       <div className="footer-bottom">
-        <p>&copy; 2024 FamilyShop. Все права защищены.</p>
+        <p>&copy; 2026 FamilyShop. Все права не защищены.</p>
       </div>
     </footer>
   );

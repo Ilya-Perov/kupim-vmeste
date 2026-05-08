@@ -7,10 +7,10 @@ export const normalizeProduct = (p) => {
     description: p.description || "Нет описания",
     image: p.image || "",
 
-    // 💰 цена всегда number
+    // цена всегда number
     price: Number(p.price || 0),
 
-    // 💰 старая цена унифицирована
+    // старая цена унифицирована
     oldPrice: p.old_price ?? p.oldPrice ?? null,
 
     rating: Number(p.rating || 0),

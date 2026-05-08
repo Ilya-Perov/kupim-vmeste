@@ -16,4 +16,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:5000"]
+# =====================
+# RUN MIGRATIONS + SEED
+# =====================
+CMD ["sh", "-c", "\
+    python manage.py makemigrations && \
+    python manage.py migrate && \
+    python manage.py seed && \
+    python manage.py createsuperuser_if_not_exists && \
+    python manage.py runserver 0.0.0.0:5000 \
+"]

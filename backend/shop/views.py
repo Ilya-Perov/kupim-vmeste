@@ -30,42 +30,49 @@ class GroupCartViewSet(viewsets.ViewSet):
         return get_logger(request)
 
     # =====================
-    # GROUP SELECTION
+    # GET GROUP
     # =====================
     def get_group(self, request):
-        group_id = request.query_params.get("group_id")
+        group_id = request.query_params.get("group_id") or request.data.get("group_id")
 
-        if group_id:
-            return request.user.family_groups.filter(id=group_id).first()
+        if not group_id:
+            return None
 
-        return request.user.family_groups.first()
+        return request.user.family_groups.filter(id=group_id).first()
 
     # =====================
-    # CART
+    # GET CART
     # =====================
     def get_cart(self, request):
         group = self.get_group(request)
 
-        logger = self.get_logger(request)
-
         if not group:
-            logger.error("group_not_found_for_cart")
+            self.get_logger(request).warning("group_not_found")
             return None
 
         cart, _ = GroupCart.objects.get_or_create(group=group)
+
         return cart
 
     # =====================
-    # GET CART
+    # MY CART
     # =====================
     @action(detail=False, methods=["get"])
     def my_cart(self, request):
         cart = self.get_cart(request)
 
         if not cart:
-            return Response({"detail": "No group"}, status=400)
+            return Response(
+                {"detail": "Group not found"},
+                status=400,
+            )
 
-        self.get_logger(request).info("cart_requested")
+        self.get_logger(request).info(
+            "cart_requested",
+            extra={
+                "group_id": cart.group.id,
+            },
+        )
 
         return Response(GroupCartSerializer(cart).data)
 
@@ -77,23 +84,36 @@ class GroupCartViewSet(viewsets.ViewSet):
         cart = self.get_cart(request)
 
         if not cart:
-            return Response({"detail": "No group"}, status=400)
+            return Response(
+                {"detail": "Group not found"},
+                status=400,
+            )
 
         product_id = request.data.get("product_id")
 
         if not product_id:
-            return Response({"detail": "product_id is required"}, status=400)
+            return Response(
+                {"detail": "product_id is required"},
+                status=400,
+            )
 
         try:
             product_id = int(product_id)
+
         except (TypeError, ValueError):
-            return Response({"detail": "invalid product_id"}, status=400)
+            return Response(
+                {"detail": "invalid product_id"},
+                status=400,
+            )
 
         try:
             item, created = CartItem.objects.get_or_create(
                 cart=cart,
                 product_id=product_id,
-                defaults={"quantity": 1, "added_by": request.user},
+                defaults={
+                    "quantity": 1,
+                    "added_by": request.user,
+                },
             )
 
             if not created:
@@ -101,14 +121,26 @@ class GroupCartViewSet(viewsets.ViewSet):
                 item.save()
 
         except Exception as e:
-            return Response({"detail": str(e)}, status=500)
+            self.get_logger(request).exception("cart_add_failed")
+
+            return Response(
+                {"detail": str(e)},
+                status=500,
+            )
 
         self.get_logger(request).info(
             "product_added_to_cart",
-            extra={"product_id": product_id},
+            extra={
+                "group_id": cart.group.id,
+                "product_id": product_id,
+            },
         )
 
-        return Response({"status": "added"})
+        return Response(
+            {
+                "status": "added",
+            }
+        )
 
     # =====================
     # REMOVE ITEM
@@ -118,16 +150,25 @@ class GroupCartViewSet(viewsets.ViewSet):
         cart = self.get_cart(request)
 
         if not cart:
-            return Response({"detail": "No group"}, status=400)
+            return Response(
+                {"detail": "Group not found"},
+                status=400,
+            )
 
         product_id = request.data.get("product_id")
 
         if not product_id:
-            return Response({"detail": "product_id is required"}, status=400)
+            return Response(
+                {"detail": "product_id is required"},
+                status=400,
+            )
 
         try:
+            product_id = int(product_id)
+
             item = CartItem.objects.filter(
-                cart=cart, product_id=int(product_id)
+                cart=cart,
+                product_id=product_id,
             ).first()
 
             if item:
@@ -138,11 +179,36 @@ class GroupCartViewSet(viewsets.ViewSet):
                     item.delete()
 
         except Exception as e:
-            return Response({"detail": str(e)}, status=500)
+            self.get_logger(request).exception("cart_remove_failed")
+
+            return Response(
+                {"detail": str(e)},
+                status=500,
+            )
 
         self.get_logger(request).info(
             "product_removed_from_cart",
-            extra={"product_id": product_id},
+            extra={
+                "group_id": cart.group.id,
+                "product_id": product_id,
+            },
         )
 
-        return Response({"status": "removed"})
+        return Response(
+            {
+                "status": "removed",
+            }
+        )
+
+    @action(detail=False, methods=["post"])
+    def checkout(self, request):
+        cart = self.get_cart(request)
+
+        if not cart:
+            return Response({"detail": "No group"}, status=400)
+
+        cart.items.all().delete()
+
+        self.get_logger(request).info("cart_checkout")
+
+        return Response({"status": "success"})

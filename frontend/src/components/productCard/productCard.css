@@ -101,3 +101,9 @@
 .details-btn {
   background: #61a1e0;
 }
+
+.add-to-cart-btn.disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  color: #666;
+}

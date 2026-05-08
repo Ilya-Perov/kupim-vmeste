@@ -7,9 +7,11 @@ export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const loadCart = async () => {
+  const loadCart = async (groupId) => {
+    if (!groupId) return;
+
     try {
-      const data = await api.getCart();
+      const data = await api.getCart(groupId);
       setCart(data);
     } catch (e) {
       console.error(e);

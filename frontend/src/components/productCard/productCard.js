@@ -1,7 +1,12 @@
 import React from "react";
 import "./productCard.css";
 
-const ProductCard = ({ product, onAddToCart, onOpen }) => {
+const ProductCard = ({
+  product,
+  onAddToCart,
+  onOpen,
+  isAuth = true, // добавили
+}) => {
   const { id, name, price, oldPrice, image, rating = 0, inCart } = product;
 
   return (
@@ -42,15 +47,22 @@ const ProductCard = ({ product, onAddToCart, onOpen }) => {
 
         {/* ACTIONS */}
         <div className="product-actions">
-          <button
-            className="add-to-cart-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddToCart?.(id);
-            }}
-          >
-            {inCart ? "✓ В корзине" : "В корзину"}
-          </button>
+          {/*  КНОПКА ТОЛЬКО ДЛЯ AUTH */}
+          {isAuth ? (
+            <button
+              className="add-to-cart-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddToCart?.(id);
+              }}
+            >
+              {inCart ? "✓ В корзине" : "В корзину"}
+            </button>
+          ) : (
+            <button className="add-to-cart-btn disabled" disabled>
+              Войдите для покупки
+            </button>
+          )}
 
           <button
             className="details-btn"

@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import "./groupPage.css";
 import { api } from "../../api";
 import UserAutocomplete from "../common/userAutocomplete";
 import GroupInviteConfirmModal from "../common/modals/groupInviteConfirmModal/groupInviteConfirmModal";
 
 const GroupPage = () => {
+  const navigate = useNavigate();
+
   const [groups, setGroups] = useState([]);
   const [activeGroup, setActiveGroup] = useState(null);
   const [members, setMembers] = useState([]);
@@ -60,9 +63,13 @@ const GroupPage = () => {
       setCart(data);
     } catch (e) {
       console.error("Cart load error:", e);
+      setCart(null);
     }
   };
 
+  // =====================
+  // INIT
+  // =====================
   useEffect(() => {
     const init = async () => {
       await loadGroups();
@@ -72,6 +79,9 @@ const GroupPage = () => {
     init();
   }, []);
 
+  // =====================
+  // SWITCH GROUP
+  // =====================
   useEffect(() => {
     if (activeGroup?.id) {
       loadMembers(activeGroup.id);
@@ -125,13 +135,33 @@ const GroupPage = () => {
   // CART ACTIONS
   // =====================
   const addToCart = async (productId) => {
-    const updated = await api.addToCart(productId, activeGroup.id);
-    setCart(updated);
+    if (!activeGroup?.id) return;
+
+    try {
+      await api.addToCart(productId, activeGroup.id);
+      await loadCart(activeGroup.id);
+    } catch (e) {
+      console.error("Add to cart error:", e);
+    }
   };
 
   const removeFromCart = async (productId) => {
-    const updated = await api.removeFromCart(productId, activeGroup.id);
-    setCart(updated);
+    if (!activeGroup?.id) return;
+
+    try {
+      await api.removeFromCart(productId, activeGroup.id);
+      await loadCart(activeGroup.id);
+    } catch (e) {
+      console.error("Remove from cart error:", e);
+    }
+  };
+
+  // =====================
+  // CHECKOUT
+  // =====================
+  const handleCheckout = () => {
+    if (!activeGroup?.id) return;
+    navigate(`/order/${activeGroup.id}`);
   };
 
   if (loading) return <div className="loading">Загрузка...</div>;
@@ -167,6 +197,13 @@ const GroupPage = () => {
       {/* MAIN */}
       <div className="main">
         <h1>{activeGroup ? activeGroup.name : "Выберите группу"}</h1>
+
+        {/* CHECKOUT BUTTON  */}
+        {activeGroup && cart?.items?.length > 0 && (
+          <button className="checkout-btn" onClick={handleCheckout}>
+            Оформить заказ
+          </button>
+        )}
 
         {/* INVITE */}
         {activeGroup && (

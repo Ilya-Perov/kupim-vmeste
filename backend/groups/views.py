@@ -50,9 +50,7 @@ class GroupViewSet(viewsets.ModelViewSet):
             extra={"group_id": group.id},
         )
 
-        return Response(
-            UserSerializer(group.members.all(), many=True).data
-        )
+        return Response(UserSerializer(group.members.all(), many=True).data)
 
     @action(detail=True, methods=["post"])
     def add_member(self, request, pk=None):
