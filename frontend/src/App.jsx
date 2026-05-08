@@ -1,5 +1,3 @@
-import "./App.css";
-
 import Home from "./components/home/home";
 import Account from "./components/account/account";
 import GroupPage from "./components/groupPage/groupPage";
@@ -9,7 +7,7 @@ import Catalog from "./components/catalog/catalog";
 import OrderPage from "./components/orderPage/orderPage";
 import RegisterPage from "./components/registerPage/registerPage";
 
-import { BrowserRouter as Router, Route, Routes } from "react-router";
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 
 import { AuthProvider } from "./context/authContext";
 import { CartProvider } from "./context/cartContext";

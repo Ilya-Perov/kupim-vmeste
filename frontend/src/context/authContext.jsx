@@ -9,25 +9,9 @@ export const AuthProvider = ({ children }) => {
 
   const loadUser = async () => {
     try {
-      const token = localStorage.getItem("access");
-
-      if (!token) {
-        setUser(null);
-        setLoading(false);
-        return;
-      }
-
-      const res = await fetch("http://localhost:5000/api/users/me/", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!res.ok) throw new Error();
-
-      const data = await res.json();
+      const data = await api.getMe();
       setUser(data);
-    } catch (e) {
+    } catch {
       setUser(null);
       localStorage.clear();
     } finally {

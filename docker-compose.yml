@@ -19,6 +19,8 @@ services:
     image: ${DOCKER_USERNAME}/frontend:${IMAGE_TAG}
     ports:
       - "80:80"
+    depends_on:
+      - backend
 
   db:
     image: postgres:15

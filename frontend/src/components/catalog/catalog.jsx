@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api } from "../../api";
 import ProductCard from "../productCard/productCard";
 import ProductModal from "../common/modals/productModal/productModal";
-import { normalizeProduct } from "../../utlis/normalizeProduct";
+import { normalizeProduct } from "../../utils/normalizeProduct";
 import { useAuth } from "../../context/authContext";
 import "./catalog.css";
 
@@ -120,9 +120,7 @@ const Catalog = () => {
       </div>
 
       {!isAuth && (
-        <div className="guest-info">
-          👋 Гость — корзина недоступна
-        </div>
+        <div className="guest-info">👋 Гость — корзина недоступна</div>
       )}
 
       <div className="catalog-layout">

@@ -5,16 +5,15 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: family_shop
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
-      SESSION_SECRET: supersecret
-      NODE_ENV: production
-    deploy:
-      replicas: 3
+      SESSION_SECRET: ${SESSION_SECRET}
+      NODE_ENV: ${NODE_ENV}
     depends_on:
       - db
+      - redis
 
   frontend:
     image: ${DOCKER_USERNAME}/frontend:${IMAGE_TAG}
@@ -31,3 +30,6 @@ services:
 
   redis:
     image: redis:7-alpine
+
+volumes:
+  postgres_data:

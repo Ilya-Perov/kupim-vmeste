@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { normalizeProduct } from "../../utlis/normalizeProduct";
+import { normalizeProduct } from "../../utils/normalizeProduct";
 import Footer from "../footer/footer";
 import ProductCard from "../productCard/productCard";
 import { api } from "../../api";
