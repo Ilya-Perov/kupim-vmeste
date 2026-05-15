@@ -1,9 +1,14 @@
 import time
 import logging
+import signal
 
-from .request_id import generate_request_id
+from django.http import JsonResponse
+
+from middleware.request_id_middleware import generate_human_request_id
 
 logger = logging.getLogger("app")
+
+is_shutting_down = False
 
 
 class RequestLoggingMiddleware:
@@ -11,7 +16,7 @@ class RequestLoggingMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        request_id = generate_request_id()
+        request_id = generate_human_request_id()
 
         request.request_id = request_id
 
@@ -42,3 +47,33 @@ class RequestLoggingMiddleware:
         response["X-Request-ID"] = request_id
 
         return response
+
+
+def shutdown_handler(signum, frame):
+    global is_shutting_down
+    is_shutting_down = True
+
+    logger.warning(
+        "shutdown_signal_received",
+        extra={
+            "signal": signum,
+        },
+    )
+
+
+signal.signal(signal.SIGTERM, shutdown_handler)
+signal.signal(signal.SIGINT, shutdown_handler)
+
+
+class GracefulShutdownMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if is_shutting_down and request.path != "/api/health/":
+            return JsonResponse(
+                {"detail": "Server shutting down"},
+                status=503,
+            )
+
+        return self.get_response(request)

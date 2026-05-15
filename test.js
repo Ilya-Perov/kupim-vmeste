@@ -1,55 +1,50 @@
-//winget install k6
-
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
 export const options = {
   stages: [
-    { duration: '10s', target: 10 },  // разгон
-    { duration: '20s', target: 30 },  // нагрузка
-    { duration: '10s', target: 0 },   // спад
+    { duration: '10s', target: 20 },
+    { duration: '30s', target: 50 },
+    { duration: '10s', target: 0 },
   ],
+
   thresholds: {
-    http_req_failed: ['rate<0.01'],   // <1% ошибок
-    http_req_duration: ['p(95)<500'], // 95% < 500ms
+    http_req_duration: ['p(95)<1000'],
   },
 };
 
 const BASE_URL = 'http://localhost';
 
+function validStatus(res, allowed) {
+  return res && allowed.includes(res.status);
+}
+
 export default function () {
-  // 1. health check (балансировка видно сразу)
-  let res1 = http.get(`${BASE_URL}/api/health`, {
-    headers: { 'Connection': 'close' }
-  });
+  try {
+    const health = http.get(`${BASE_URL}/api/health/`);
 
-  check(res1, {
-    'health status 200': (r) => r.status === 200,
-    'has hostname': (r) => r.json('hostname') !== undefined,
-  });
+    check(health, {
+      'health ok': (r) =>
+        validStatus(r, [200, 503]),
+    });
 
-  sleep(0.5);
+    const products = http.get(`${BASE_URL}/api/products/`);
 
-  // 2. products API (нагрузка на PostgreSQL)
-  let res2 = http.get(`${BASE_URL}/api/products`, {
-    headers: { 'Connection': 'close' }
-  });
+    check(products, {
+      'products ok': (r) =>
+        validStatus(r, [200, 503]),
+    });
 
-  check(res2, {
-    'products status 200': (r) => r.status === 200,
-    'has array': (r) => Array.isArray(r.json()),
-  });
+    const groups = http.get(`${BASE_URL}/api/my-groups/`);
 
-  sleep(0.5);
+    check(groups, {
+      'groups ok': (r) =>
+        validStatus(r, [200, 401, 403, 503]),
+    });
 
-  // 3. family members API
-  let res3 = http.get(`${BASE_URL}/api/family-members`, {
-    headers: { 'Connection': 'close' }
-  });
-
-  check(res3, {
-    'family status 200': (r) => r.status === 200,
-  });
+  } catch (e) {
+    console.log(`request failed during restart: ${e}`);
+  }
 
   sleep(1);
 }

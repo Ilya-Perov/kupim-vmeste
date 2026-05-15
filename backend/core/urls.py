@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.urls import path, include
+
+from .views import health
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
@@ -10,4 +12,5 @@ urlpatterns = [
     path("api/", include("shop.urls")),
     path("api/users/", include("users.urls")),
     path("api/", include("orders.urls")),
+    path("api/health/", health),
 ]
