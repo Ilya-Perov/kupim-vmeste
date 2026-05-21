@@ -7,7 +7,7 @@ services:
     container_name: backend
 
     restart: always
-
+    command: server
     environment:
       DB_HOST: db
       DB_PORT: 5432
